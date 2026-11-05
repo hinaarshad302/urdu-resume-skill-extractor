@@ -788,9 +788,14 @@ def build_xlsx(profile, language, urdu_profile=None):
     rows = []
 
     contact_language = "Urdu" if language == "Urdu" else "English"
+    job_value = (
+        urdu_profile.get("job", "")
+        if language == "Urdu"
+        else profile.get("job", "")
+    )
     rows.extend([
         [LABELS[contact_language]["name"], profile.get("name", "")],
-        [LABELS[contact_language]["job"], profile.get("job", "")],
+        [LABELS[contact_language]["job"], job_value],
         [LABELS[contact_language]["email"], profile.get("email", "")],
         [LABELS[contact_language]["phone"], profile.get("phone", "")]
     ])
@@ -1152,14 +1157,27 @@ def build_pdf(profile, language, urdu_profile=None):
         )
     )
 
-    if profile.get("job"):
+    job_value = (
+        urdu_profile.get("job", "")
+        if language == "Urdu"
+        else profile.get("job", "")
+    )
 
-        story.append(
-            Paragraph(
-                html.escape(str(profile["job"])),
-                english_body
+    if job_value:
+        if language == "Urdu":
+            add_urdu_text(
+                job_value,
+                font_size=10,
+                color="#222222",
+                space_after=5
             )
-        )
+        else:
+            story.append(
+                Paragraph(
+                    html.escape(str(job_value)),
+                    english_body
+                )
+            )
 
     contact = " | ".join(
         str(x)
