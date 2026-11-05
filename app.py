@@ -48,6 +48,7 @@ st.set_page_config(
 # GEMINI AI CONFIGURATION
 # =====================================================
 from google import genai
+from google.genai import types
 
 
 def get_gemini_client():
@@ -61,7 +62,10 @@ def get_gemini_client():
             "Gemini API Key missing. Add GEMINI_API_KEY to Streamlit Cloud Secrets."
         )
 
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=90000)
+    )
 
 
 def generate_professional_profiles(profile, resume_text):
@@ -113,7 +117,11 @@ ORIGINAL RESUME TEXT:
         try:
             response = client.models.generate_content(
                 model="gemini-3.8-flash",
-                contents=prompt
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    max_output_tokens=4096,
+                    temperature=0.2
+                )
             )
             break
         except Exception as api_error:
