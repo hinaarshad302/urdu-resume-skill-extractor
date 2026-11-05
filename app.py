@@ -1,4 +1,3 @@
-
 import re
 import io
 import os
@@ -6,10 +5,12 @@ import html
 import streamlit as st
 import pdfplumber
 import pandas as pd
+
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -38,7 +39,7 @@ st.set_page_config(
 
 
 # =====================================================
-# ORIGINAL PROFESSIONAL DESIGN
+# PROFESSIONAL DESIGN
 # =====================================================
 st.markdown("""
 <style>
@@ -56,6 +57,7 @@ html, body, [class*="css"] {font-family:'Inter',sans-serif;}
 .sidebar-subtitle {font-size:12px;color:#B9CBD9;margin-top:5px;}
 .sidebar-section {color:#8FCFC8;font-size:11px;font-weight:700;letter-spacing:1.2px;margin-top:22px;margin-bottom:9px;}
 .sidebar-item {padding:9px 11px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);border-radius:9px;margin-bottom:7px;font-size:12px;}
+.sidebar-credit {border-top:1px solid rgba(255,255,255,0.2);margin-top:22px;padding-top:15px;text-align:center;color:#A8E2D8;font-size:12px;font-weight:700;}
 .hero {background:linear-gradient(120deg,#102A43 0%,#176B70 100%);padding:30px 32px;border-radius:18px;color:white;margin-bottom:24px;box-shadow:0 8px 25px rgba(16,42,67,0.12);}
 .hero h1 {color:white !important;font-size:31px !important;font-weight:800 !important;margin:0 0 10px 0;}
 .hero p {color:#E1F1F1;font-size:14px;margin:0;line-height:1.7;}
@@ -71,7 +73,7 @@ html, body, [class*="css"] {font-family:'Inter',sans-serif;}
 .stButton > button,.stDownloadButton > button {background:#176B70;color:white;border:none;border-radius:9px;font-weight:650;padding:9px 18px;}
 .stButton > button:hover,.stDownloadButton > button:hover {background:#12565A;color:white;border:none;}
 [data-testid="stFileUploader"] {background:white;border:1px dashed #9AB8C8;border-radius:13px;padding:14px;}
-.footer {border-top:1px solid #E1E7EF;padding-top:18px;margin-top:40px;color:#7A8999;font-size:11px;text-align:center;}
+.footer {border-top:1px solid #E1E7EF;padding-top:20px;margin-top:40px;color:#7A8999;font-size:11px;text-align:center;line-height:1.8;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,7 +138,6 @@ def extract_name(text):
 
     for line in text.splitlines():
         value = line.strip()
-
         if (
             value
             and len(value) <= 65
@@ -144,7 +145,6 @@ def extract_name(text):
             and not any(word in value.lower() for word in ignored)
         ):
             return value
-
     return ""
 
 
@@ -158,7 +158,6 @@ def extract_skills(text):
             + re.escape(skill)
             + r"(?![a-z0-9])"
         )
-
         if re.search(pattern, lower_text):
             found.append(skill.title())
 
@@ -171,7 +170,6 @@ def extract_education(text):
         "bs cs", "bscs", "bba", "mba", "intermediate",
         "matric", "associate degree", "diploma"
     ]
-
     return [
         line.strip()
         for line in text.splitlines()
@@ -184,7 +182,6 @@ def extract_experience(text):
         "experience", "employment", "internship",
         "work history", "professional experience"
     ]
-
     return [
         line.strip()
         for line in text.splitlines()
@@ -207,7 +204,6 @@ LABELS = {
         "experience": "Experience",
         "languages": "Languages"
     },
-
     "Urdu": {
         "name": "پورا نام",
         "job": "مطلوبہ عہدہ",
@@ -218,138 +214,209 @@ LABELS = {
         "education": "تعلیم",
         "experience": "تجربہ",
         "languages": "زبانیں"
-    },
-
-    "Bilingual": {
-        "name": "Full Name / پورا نام",
-        "job": "Target Job / مطلوبہ عہدہ",
-        "email": "Email / ای میل",
-        "phone": "Phone / فون نمبر",
-        "summary": "Professional Summary / پیشہ ورانہ تعارف",
-        "skills": "Skills / مہارتیں",
-        "education": "Education / تعلیم",
-        "experience": "Experience / تجربہ",
-        "languages": "Languages / زبانیں"
     }
 }
 
+SECTION_KEYS = [
+    "summary", "skills", "education", "experience", "languages"
+]
+
 
 # =====================================================
-# WORD EXPORT
+# WORD EXPORT HELPERS
 # =====================================================
 def set_paragraph_rtl(paragraph):
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-
     p_pr = paragraph._p.get_or_add_pPr()
     bidi = OxmlElement("w:bidi")
     p_pr.append(bidi)
 
 
-def build_docx(profile, language):
+def add_docx_section(doc, heading, value, rtl=False):
+    if not str(value or "").strip():
+        return
+
+    h = doc.add_heading(heading, level=1)
+    p = doc.add_paragraph(str(value))
+
+    if rtl:
+        set_paragraph_rtl(h)
+        set_paragraph_rtl(p)
+
+
+def build_docx(profile, language, urdu_profile=None):
+    urdu_profile = urdu_profile or {}
     doc = Document()
 
     section = doc.sections[0]
     section.top_margin = Inches(0.65)
     section.bottom_margin = Inches(0.65)
+    section.left_margin = Inches(0.7)
+    section.right_margin = Inches(0.7)
 
-    labels = LABELS[language]
-    rtl = language == "Urdu"
+    normal = doc.styles["Normal"]
+    normal.font.name = "Arial"
+    normal.font.size = Pt(10)
 
-    title = doc.add_heading(profile["name"] or labels["name"], 0)
-
-    if rtl:
+    if language == "Urdu":
+        title_text = profile["name"] or "CV"
+        title = doc.add_heading(title_text, 0)
         set_paragraph_rtl(title)
 
-    if profile["job"]:
-        p = doc.add_paragraph(profile["job"])
-        if rtl:
+        if profile["job"]:
+            p = doc.add_paragraph(profile["job"])
             set_paragraph_rtl(p)
 
-    contact = " | ".join(
-        x for x in [profile["email"], profile["phone"]] if x
+        contact = " | ".join(
+            x for x in [profile["email"], profile["phone"]] if x
+        )
+        if contact:
+            doc.add_paragraph(contact)
+
+        for key in SECTION_KEYS:
+            add_docx_section(
+                doc, LABELS["Urdu"][key],
+                urdu_profile.get(key, ""), rtl=True
+            )
+
+    elif language == "Bilingual":
+        title = doc.add_heading(profile["name"] or "Candidate CV", 0)
+
+        if profile["job"]:
+            doc.add_paragraph(profile["job"])
+
+        contact = " | ".join(
+            x for x in [profile["email"], profile["phone"]] if x
+        )
+        if contact:
+            doc.add_paragraph(contact)
+
+        for key in SECTION_KEYS:
+            add_docx_section(
+                doc, LABELS["English"][key],
+                profile.get(key, ""), rtl=False
+            )
+            add_docx_section(
+                doc, LABELS["Urdu"][key],
+                urdu_profile.get(key, ""), rtl=True
+            )
+
+    else:
+        title = doc.add_heading(profile["name"] or "Candidate CV", 0)
+
+        if profile["job"]:
+            doc.add_paragraph(profile["job"])
+
+        contact = " | ".join(
+            x for x in [profile["email"], profile["phone"]] if x
+        )
+        if contact:
+            doc.add_paragraph(contact)
+
+        for key in SECTION_KEYS:
+            add_docx_section(
+                doc, LABELS["English"][key],
+                profile.get(key, ""), rtl=False
+            )
+
+    footer = section.footer.paragraphs[0]
+    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    footer.add_run(
+        "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
     )
-
-    if contact:
-        doc.add_paragraph(contact)
-
-    for key in [
-        "summary", "skills", "education",
-        "experience", "languages"
-    ]:
-        value = profile[key]
-
-        if value.strip():
-            heading = doc.add_heading(labels[key], level=1)
-            paragraph = doc.add_paragraph(value)
-
-            if rtl:
-                set_paragraph_rtl(heading)
-                set_paragraph_rtl(paragraph)
 
     output = io.BytesIO()
     doc.save(output)
-
     return output.getvalue()
 
 
 # =====================================================
 # EXCEL EXPORT
 # =====================================================
-def build_xlsx(profile, language):
-    from openpyxl.styles import Font, PatternFill, Alignment
+def build_xlsx(profile, language, urdu_profile=None):
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-    labels = LABELS[language]
+    urdu_profile = urdu_profile or {}
+    rows = []
 
-    rows = [
-        [labels["name"], profile["name"]],
-        [labels["job"], profile["job"]],
-        [labels["email"], profile["email"]],
-        [labels["phone"], profile["phone"]],
-        [labels["summary"], profile["summary"]],
-        [labels["skills"], profile["skills"]],
-        [labels["education"], profile["education"]],
-        [labels["experience"], profile["experience"]],
-        [labels["languages"], profile["languages"]]
-    ]
+    if language == "Urdu":
+        rows.extend([
+            [LABELS["Urdu"]["name"], profile["name"]],
+            [LABELS["Urdu"]["job"], profile["job"]],
+            [LABELS["Urdu"]["email"], profile["email"]],
+            [LABELS["Urdu"]["phone"], profile["phone"]]
+        ])
+        for key in SECTION_KEYS:
+            rows.append([LABELS["Urdu"][key], urdu_profile.get(key, "")])
 
-    df = pd.DataFrame(
-        rows,
-        columns=["Field", "Candidate Information"]
-    )
+    elif language == "Bilingual":
+        rows.extend([
+            ["Full Name / پورا نام", profile["name"]],
+            ["Target Job / مطلوبہ عہدہ", profile["job"]],
+            ["Email / ای میل", profile["email"]],
+            ["Phone / فون نمبر", profile["phone"]]
+        ])
+        for key in SECTION_KEYS:
+            rows.append([
+                LABELS["English"][key] + " / " + LABELS["Urdu"][key],
+                profile.get(key, "") + "\n\n" + urdu_profile.get(key, "")
+            ])
 
+    else:
+        rows.extend([
+            [LABELS["English"]["name"], profile["name"]],
+            [LABELS["English"]["job"], profile["job"]],
+            [LABELS["English"]["email"], profile["email"]],
+            [LABELS["English"]["phone"], profile["phone"]]
+        ])
+        for key in SECTION_KEYS:
+            rows.append([LABELS["English"][key], profile.get(key, "")])
+
+    df = pd.DataFrame(rows, columns=["Field", "Candidate Information"])
     output = io.BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Candidate Profile"
-        )
-
+        df.to_excel(writer, index=False, sheet_name="Candidate Profile")
         ws = writer.sheets["Candidate Profile"]
+
         ws.column_dimensions["A"].width = 34
-        ws.column_dimensions["B"].width = 65
+        ws.column_dimensions["B"].width = 68
+        ws.sheet_view.rightToLeft = language in ["Urdu", "Bilingual"]
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+
+        header_fill = PatternFill("solid", fgColor="176B70")
+        thin_gray = Side(style="thin", color="E5EAF1")
 
         for cell in ws[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill("solid", fgColor="176B70")
+            cell.font = Font(bold=True, color="FFFFFF", size=11)
+            cell.fill = header_fill
+            cell.alignment = Alignment(
+                horizontal="right" if language == "Urdu" else "left",
+                vertical="center"
+            )
 
-        for row in ws.iter_rows():
+        for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.alignment = Alignment(
-                    wrap_text=True,
-                    vertical="top"
+                    horizontal="right" if language in ["Urdu", "Bilingual"] else "left",
+                    vertical="top",
+                    wrap_text=True
                 )
+                cell.border = Border(bottom=thin_gray)
+
+        ws.row_dimensions[1].height = 25
 
     return output.getvalue()
 
 
 # =====================================================
 # PDF EXPORT
-# Urdu PDF font:
+# Urdu font required:
 # assets/NotoNastaliqUrdu-Regular.ttf
 # =====================================================
-def build_pdf(profile, language):
+def build_pdf(profile, language, urdu_profile=None):
+    urdu_profile = urdu_profile or {}
     output = io.BytesIO()
 
     doc = SimpleDocTemplate(
@@ -358,33 +425,31 @@ def build_pdf(profile, language):
         rightMargin=42,
         leftMargin=42,
         topMargin=42,
-        bottomMargin=42
+        bottomMargin=55
     )
 
-    is_urdu = language == "Urdu"
+    has_urdu = language in ["Urdu", "Bilingual"]
     font_name = "Helvetica"
 
-    if is_urdu:
+    if has_urdu:
         if not URDU_SHAPING_AVAILABLE:
             raise ValueError(
-                "Urdu PDF ke liye arabic-reshaper aur python-bidi install karein."
+                "Urdu PDF ke liye arabic-reshaper aur python-bidi "
+                "requirements.txt mein add karein."
             )
 
         font_path = os.path.join(
-            "assets",
-            "NotoNastaliqUrdu-Regular.ttf"
+            "assets", "NotoNastaliqUrdu-Regular.ttf"
         )
 
         if not os.path.exists(font_path):
             raise ValueError(
-                "Urdu font missing hai. assets folder mein "
+                "Urdu PDF font missing hai. GitHub ke assets folder mein "
                 "NotoNastaliqUrdu-Regular.ttf upload karein."
             )
 
         if "UrduFont" not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(
-                TTFont("UrduFont", font_path)
-            )
+            pdfmetrics.registerFont(TTFont("UrduFont", font_path))
 
         font_name = "UrduFont"
 
@@ -393,88 +458,187 @@ def build_pdf(profile, language):
     title_style = ParagraphStyle(
         "CVTitle",
         parent=styles["Title"],
-        fontName=font_name,
+        fontName="Helvetica-Bold" if language == "English" else font_name,
         fontSize=19,
-        leading=27,
+        leading=28,
         textColor=colors.HexColor("#102A43"),
-        alignment=TA_RIGHT if is_urdu else TA_LEFT,
+        alignment=TA_RIGHT if language == "Urdu" else TA_LEFT,
         spaceAfter=10
     )
 
-    heading_style = ParagraphStyle(
-        "CVHeading",
+    english_heading = ParagraphStyle(
+        "EnglishHeading",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=18,
+        textColor=colors.HexColor("#176B70"),
+        alignment=TA_LEFT,
+        spaceBefore=12,
+        spaceAfter=5
+    )
+
+    urdu_heading = ParagraphStyle(
+        "UrduHeading",
         parent=styles["Heading2"],
         fontName=font_name,
         fontSize=12,
-        leading=19,
+        leading=24,
         textColor=colors.HexColor("#176B70"),
-        alignment=TA_RIGHT if is_urdu else TA_LEFT,
-        spaceBefore=12
+        alignment=TA_RIGHT,
+        spaceBefore=12,
+        spaceAfter=7
     )
 
-    body_style = ParagraphStyle(
-        "CVBody",
+    english_body = ParagraphStyle(
+        "EnglishBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9.5,
+        leading=15,
+        alignment=TA_LEFT
+    )
+
+    urdu_body = ParagraphStyle(
+        "UrduBody",
         parent=styles["BodyText"],
         fontName=font_name,
-        fontSize=9.5,
-        leading=16,
-        alignment=TA_RIGHT if is_urdu else TA_LEFT
+        fontSize=10,
+        leading=24,
+        alignment=TA_RIGHT
     )
 
-    def formatted(value):
-        value = html.escape(str(value or ""))
-        value = value.replace("\n", "<br/>")
+    def safe_text(value):
+        return html.escape(str(value or "")).replace("\n", "<br/>")
 
-        if is_urdu:
-            value = get_display(
-                arabic_reshaper.reshape(value.replace("<br/>", " "))
-            )
+    def shape_urdu(value):
+        if not value:
+            return ""
+        if not URDU_SHAPING_AVAILABLE:
+            return safe_text(value)
 
-        return value
+        # Har line ko alag shape karna taake line breaks preserve rahen.
+        shaped_lines = []
+        for line in str(value).splitlines():
+            escaped = html.escape(line)
+            if escaped.strip():
+                shaped_lines.append(
+                    get_display(arabic_reshaper.reshape(escaped))
+                )
+            else:
+                shaped_lines.append("&nbsp;")
 
-    labels = LABELS[language]
+        return "<br/>".join(shaped_lines)
 
-    story = [
-        Paragraph(
-            formatted(profile["name"] or labels["name"]),
-            title_style
+    story = []
+
+    if language == "Urdu":
+        story.append(Paragraph(
+            safe_text(profile["name"] or "CV"), title_style
+        ))
+        if profile["job"]:
+            story.append(Paragraph(
+                safe_text(profile["job"]), urdu_body
+            ))
+
+        contact = " | ".join(
+            x for x in [profile["email"], profile["phone"]] if x
         )
-    ]
+        if contact:
+            story.append(Paragraph(safe_text(contact), english_body))
 
-    if profile["job"]:
-        story.append(
-            Paragraph(formatted(profile["job"]), body_style)
+        for key in SECTION_KEYS:
+            value = urdu_profile.get(key, "")
+            if value.strip():
+                story.append(Paragraph(
+                    shape_urdu(LABELS["Urdu"][key]), urdu_heading
+                ))
+                story.append(Paragraph(shape_urdu(value), urdu_body))
+
+    elif language == "Bilingual":
+        story.append(Paragraph(
+            safe_text(profile["name"] or "Candidate CV"), title_style
+        ))
+        if profile["job"]:
+            story.append(Paragraph(
+                safe_text(profile["job"]), english_body
+            ))
+
+        contact = " | ".join(
+            x for x in [profile["email"], profile["phone"]] if x
         )
+        if contact:
+            story.append(Paragraph(safe_text(contact), english_body))
 
-    contact = " | ".join(
-        x for x in [profile["email"], profile["phone"]] if x
+        for key in SECTION_KEYS:
+            english_value = profile.get(key, "")
+            urdu_value = urdu_profile.get(key, "")
+
+            if english_value.strip():
+                story.append(Paragraph(
+                    safe_text(LABELS["English"][key]), english_heading
+                ))
+                story.append(Paragraph(
+                    safe_text(english_value), english_body
+                ))
+
+            if urdu_value.strip():
+                story.append(Paragraph(
+                    shape_urdu(LABELS["Urdu"][key]), urdu_heading
+                ))
+                story.append(Paragraph(
+                    shape_urdu(urdu_value), urdu_body
+                ))
+
+    else:
+        story.append(Paragraph(
+            safe_text(profile["name"] or "Candidate CV"), title_style
+        ))
+        if profile["job"]:
+            story.append(Paragraph(
+                safe_text(profile["job"]), english_body
+            ))
+
+        contact = " | ".join(
+            x for x in [profile["email"], profile["phone"]] if x
+        )
+        if contact:
+            story.append(Paragraph(safe_text(contact), english_body))
+
+        for key in SECTION_KEYS:
+            value = profile.get(key, "")
+            if value.strip():
+                story.append(Paragraph(
+                    safe_text(LABELS["English"][key]), english_heading
+                ))
+                story.append(Paragraph(
+                    safe_text(value), english_body
+                ))
+
+    def add_pdf_footer(canvas, document):
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor("#DCE5EC"))
+        canvas.line(42, 38, A4[0] - 42, 38)
+        canvas.setFont("Helvetica", 8)
+        canvas.setFillColor(colors.HexColor("#718096"))
+        canvas.drawCentredString(
+            A4[0] / 2,
+            24,
+            "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
+        )
+        canvas.restoreState()
+
+    doc.build(
+        story,
+        onFirstPage=add_pdf_footer,
+        onLaterPages=add_pdf_footer
     )
-
-    if contact:
-        story.extend([
-            Spacer(1, 5),
-            Paragraph(formatted(contact), body_style)
-        ])
-
-    for key in [
-        "summary", "skills", "education",
-        "experience", "languages"
-    ]:
-        if profile[key].strip():
-            story.append(
-                Paragraph(formatted(labels[key]), heading_style)
-            )
-            story.append(
-                Paragraph(formatted(profile[key]), body_style)
-            )
-
-    doc.build(story)
 
     return output.getvalue()
 
 
 # =====================================================
-# SIDEBAR - ORIGINAL DESIGN
+# SIDEBAR - ORIGINAL DESIGN + CREDIT
 # =====================================================
 with st.sidebar:
 
@@ -494,17 +658,14 @@ with st.sidebar:
         '<div class="sidebar-section">PROJECT OVERVIEW</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">🏠 &nbsp; Resume Dashboard</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📊 &nbsp; Candidate Analysis</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📥 &nbsp; Profile Export</div>',
         unsafe_allow_html=True
@@ -514,17 +675,14 @@ with st.sidebar:
         '<div class="sidebar-section">SUPPORTED FORMATS</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📕 &nbsp; PDF Documents</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📝 &nbsp; DOCX Documents</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📃 &nbsp; TXT Documents</div>',
         unsafe_allow_html=True
@@ -534,33 +692,33 @@ with st.sidebar:
         '<div class="sidebar-section">CURRENT CAPABILITIES</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Text extraction</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Email and phone detection</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Basic skill detection</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Word, Excel and PDF export</div>',
         unsafe_allow_html=True
     )
 
     st.divider()
-
     st.caption("ACADEMIC PROJECT")
     st.markdown("**FYP 2026–2027**")
     st.caption("Developed with Python and Streamlit")
     st.caption("Prototype Version 1.1")
+
+    st.markdown(
+        '<div class="sidebar-credit">Built by Hina Arshad</div>',
+        unsafe_allow_html=True
+    )
 
 
 # =====================================================
@@ -650,24 +808,20 @@ if uploaded_file:
 
         if file_name.endswith(".pdf"):
             resume_text = extract_pdf(uploaded_file)
-
         elif file_name.endswith(".docx"):
             resume_text = extract_docx(uploaded_file)
-
         else:
             resume_text = extract_txt(uploaded_file)
 
         st.success("Resume uploaded successfully.")
 
         if not resume_text.strip():
-
             st.warning(
                 "No readable text was found. This may be a scanned PDF. "
                 "OCR support will be introduced in a future development phase."
             )
 
         else:
-
             email = extract_email(resume_text)
             phone = extract_phone(resume_text)
             skills = extract_skills(resume_text)
@@ -675,7 +829,9 @@ if uploaded_file:
             experience = extract_experience(resume_text)
             detected_name = extract_name(resume_text)
 
-            # SUMMARY METRICS
+            # -----------------------------------------
+            # 02 CANDIDATE OVERVIEW
+            # -----------------------------------------
             st.markdown(
                 '<div class="section-heading">02 &nbsp; Candidate Overview</div>',
                 unsafe_allow_html=True
@@ -701,7 +857,9 @@ if uploaded_file:
                     unsafe_allow_html=True
                 )
 
-            # CONTACT INFORMATION
+            # -----------------------------------------
+            # 03 CONTACT INFORMATION
+            # -----------------------------------------
             st.markdown(
                 '<div class="section-heading">03 &nbsp; Contact Information</div>',
                 unsafe_allow_html=True
@@ -725,7 +883,9 @@ if uploaded_file:
                 st.write(phone or "Not detected")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # SKILLS
+            # -----------------------------------------
+            # 04 TECHNICAL SKILLS
+            # -----------------------------------------
             st.markdown(
                 '<div class="section-heading">04 &nbsp; Technical Skills</div>',
                 unsafe_allow_html=True
@@ -747,7 +907,9 @@ if uploaded_file:
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # EDUCATION AND EXPERIENCE
+            # -----------------------------------------
+            # 05 EDUCATION AND 06 EXPERIENCE
+            # -----------------------------------------
             left, right = st.columns(2)
 
             with left:
@@ -755,7 +917,6 @@ if uploaded_file:
                     '<div class="section-heading">05 &nbsp; Education</div>',
                     unsafe_allow_html=True
                 )
-
                 st.markdown(
                     '<div class="content-card"><h3>🎓 Academic Background</h3>',
                     unsafe_allow_html=True
@@ -774,7 +935,6 @@ if uploaded_file:
                     '<div class="section-heading">06 &nbsp; Experience</div>',
                     unsafe_allow_html=True
                 )
-
                 st.markdown(
                     '<div class="content-card"><h3>💼 Work Background</h3>',
                     unsafe_allow_html=True
@@ -788,9 +948,10 @@ if uploaded_file:
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
+            # -----------------------------------------
             # ORIGINAL EXTRACTED TEXT
+            # -----------------------------------------
             with st.expander("📄 View Original Extracted Resume Text"):
-
                 st.text_area(
                     "Extracted document content",
                     resume_text,
@@ -798,7 +959,9 @@ if uploaded_file:
                     key="original_resume_text"
                 )
 
-            # EDITABLE PROFILE
+            # -----------------------------------------
+            # 07 EDITABLE CANDIDATE PROFILE
+            # -----------------------------------------
             st.markdown(
                 '<div class="section-heading">07 &nbsp; Edit Candidate Profile</div>',
                 unsafe_allow_html=True
@@ -889,9 +1052,63 @@ if uploaded_file:
                 "languages": languages_text.strip()
             }
 
-            # EXPORT
+            # -----------------------------------------
+            # 08 MANUAL URDU CONTENT
+            # -----------------------------------------
             st.markdown(
-                '<div class="section-heading">08 &nbsp; Export Professional CV</div>',
+                '<div class="section-heading">08 &nbsp; Urdu CV Content</div>',
+                unsafe_allow_html=True
+            )
+
+            st.caption(
+                "Agar Urdu ya Bilingual CV banana hai to neeche Urdu "
+                "content manually enter karein. Name, email aur phone "
+                "aapke original profile se liye jayenge."
+            )
+
+            urdu_profile = {}
+
+            with st.expander("✍️ Enter Urdu CV Details", expanded=(language != "English")):
+                urdu_profile["summary"] = st.text_area(
+                    "پیشہ ورانہ تعارف",
+                    key="urdu_summary",
+                    height=100,
+                    placeholder="اپنا پیشہ ورانہ تعارف اردو میں لکھیں"
+                )
+
+                urdu_profile["skills"] = st.text_area(
+                    "مہارتیں",
+                    key="urdu_skills",
+                    height=90,
+                    placeholder="اپنی مہارتیں اردو میں لکھیں"
+                )
+
+                urdu_profile["education"] = st.text_area(
+                    "تعلیم",
+                    key="urdu_education",
+                    height=100,
+                    placeholder="اپنی تعلیمی معلومات اردو میں لکھیں"
+                )
+
+                urdu_profile["experience"] = st.text_area(
+                    "تجربہ",
+                    key="urdu_experience",
+                    height=100,
+                    placeholder="اپنا تجربہ اردو میں لکھیں"
+                )
+
+                urdu_profile["languages"] = st.text_area(
+                    "زبانیں",
+                    key="urdu_languages",
+                    height=70,
+                    placeholder="مثلاً اردو، انگریزی"
+                )
+
+            # -----------------------------------------
+            # 09 EXPORT PROFESSIONAL CV
+            # -----------------------------------------
+            st.markdown(
+                '<div class="section-heading">09 &nbsp; Export Professional CV</div>',
                 unsafe_allow_html=True
             )
 
@@ -901,16 +1118,30 @@ if uploaded_file:
             )
 
             st.write(
-                "Review the editable details above, "
-                "then download your selected CV format."
+                "Review your details and download your selected CV format."
             )
+
+            if language in ["Urdu", "Bilingual"]:
+                missing_urdu = [
+                    LABELS["Urdu"][key]
+                    for key in SECTION_KEYS
+                    if not urdu_profile.get(key, "").strip()
+                ]
+
+                if missing_urdu:
+                    st.warning(
+                        "Urdu fields abhi incomplete hain. Behtar result "
+                        "ke liye Urdu content enter karein. Empty fields "
+                        "CV mein include nahi honge."
+                    )
 
             e1, e2, e3 = st.columns(3)
 
             with e1:
                 try:
-                    word_file = build_docx(profile, language)
-
+                    word_file = build_docx(
+                        profile, language, urdu_profile
+                    )
                     st.download_button(
                         "⬇ Download Word CV",
                         word_file,
@@ -918,14 +1149,14 @@ if uploaded_file:
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True
                     )
-
                 except Exception as err:
                     st.error(f"Word export error: {err}")
 
             with e2:
                 try:
-                    excel_file = build_xlsx(profile, language)
-
+                    excel_file = build_xlsx(
+                        profile, language, urdu_profile
+                    )
                     st.download_button(
                         "⬇ Download Excel",
                         excel_file,
@@ -933,14 +1164,14 @@ if uploaded_file:
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
-
                 except Exception as err:
                     st.error(f"Excel export error: {err}")
 
             with e3:
                 try:
-                    pdf_file = build_pdf(profile, language)
-
+                    pdf_file = build_pdf(
+                        profile, language, urdu_profile
+                    )
                     st.download_button(
                         "⬇ Download PDF CV",
                         pdf_file,
@@ -948,18 +1179,17 @@ if uploaded_file:
                         "application/pdf",
                         use_container_width=True
                     )
-
                 except Exception as err:
                     st.warning(f"PDF export issue: {err}")
 
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.info(
-                "Review extracted information before using the CV. "
-                "This version uses rule-based detection and is not yet a fully "
-                "AI-powered or OCR-enabled parser. Language selection changes "
-                "document headings; it does not automatically translate English "
-                "resume content into Urdu."
+                "Important: Urdu content is entered manually. This app "
+                "does not automatically translate English into Urdu. "
+                "Review all candidate information before using the CV. "
+                "The current parser uses rule-based detection and does "
+                "not yet support OCR for scanned resumes."
             )
 
     except Exception as error:
@@ -971,13 +1201,20 @@ else:
 
 
 # =====================================================
-# FOOTER
+# PROFESSIONAL FOOTER
 # =====================================================
 st.markdown("""
 <div class="footer">
-    <b>Urdu Resume Skill Extractor</b><br>
+    <b style="color:#17324D;font-size:13px;">
+        Urdu Resume Skill Extractor
+    </b><br>
+    Intelligent Resume Analysis & Candidate Information Extraction<br>
     Academic Final Year Project | 2026–2027<br>
-    Python • Streamlit • Document Information Extraction<br><br>
-    Prototype output should be reviewed before any recruitment decision.
+    Python • Streamlit • PDF • Word • Excel<br><br>
+    <b style="color:#176B70;">Designed & Developed by Hina Arshad</b><br>
+    <span style="font-size:10px;">
+        This tool provides automated assistance. Please verify extracted
+        information before making recruitment decisions.
+    </span>
 </div>
 """, unsafe_allow_html=True)
