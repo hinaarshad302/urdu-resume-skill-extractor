@@ -911,7 +911,7 @@ with st.sidebar:
     st.caption("ACADEMIC PROJECT")
     st.markdown("**FYP 2026–2027**")
     st.caption("Developed with Python and Streamlit")
-    st.caption("Prototype Version 1.3")
+    st.caption("Prototype Version 1.4")
 
     st.markdown(
         '<div class="sidebar-credit">Built by Hina Arshad</div>',
