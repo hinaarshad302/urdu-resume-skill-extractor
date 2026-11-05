@@ -439,6 +439,13 @@ def extract_name(text):
 # =====================================================
 # SKILL DETECTION
 # =====================================================
+SOFT_SKILLS = {
+    "communication", "teamwork", "time management", "problem solving",
+    "project management", "leadership", "adaptability", "critical thinking",
+    "documentation"
+}
+
+
 def extract_skills(text):
 
     lower_text = text.lower()
@@ -446,6 +453,10 @@ def extract_skills(text):
 
     # Longer phrases are checked first to avoid duplicate labels.
     for skill in sorted(SKILLS, key=len, reverse=True):
+
+        # Soft skills are displayed in their own category, not as technical skills.
+        if skill in SOFT_SKILLS:
+            continue
 
         pattern = (
             r"(?<![a-z0-9])"
@@ -479,6 +490,18 @@ def extract_skills(text):
         if generic in found and any(item in found for item in specific_items):
             found.remove(generic)
 
+    return found
+
+
+def extract_soft_skills(text):
+    lower_text = text.lower()
+    found = []
+    for skill in sorted(SOFT_SKILLS, key=len, reverse=True):
+        pattern = r"(?<![a-z0-9])" + re.escape(skill) + r"(?![a-z0-9])"
+        if re.search(pattern, lower_text):
+            label = SKILL_DISPLAY.get(skill, skill.title())
+            if label not in found:
+                found.append(label)
     return found
 
 
@@ -612,6 +635,14 @@ def extract_projects(text):
         value = remove_contact_noise(line)
         if not value:
             continue
+        # Ignore education fragments accidentally placed inside a PDF Projects column.
+        if re.search(
+            r"\b(?:BS|BSc|Bachelor|Master|Degree)\b.*\bComputer Science\b|"
+            r"^BS Computer Science$",
+            value,
+            re.I
+        ) and not any(word in value.lower() for word in known_project_words):
+            continue
         # Ignore the two-column PDF header fragment above the first project.
         if value.endswith("|") and len(value) < 70:
             continue
@@ -659,14 +690,26 @@ def extract_experience(text):
     )
 
     results, current = [], []
+    started = False
     for line in lines:
         value = remove_contact_noise(line)
         if not value:
             continue
-        if role_pattern.search(value):
+
+        role_match = role_pattern.search(value)
+        if role_match:
+            # PDF column extraction can prepend the end of the Profile section
+            # to the first job title. Keep only text from the actual role onward.
+            value = value[role_match.start():].strip(" |,-")
+            started = True
             if current:
                 results.append("\n".join(current))
             current = [value]
+            continue
+
+        # Never treat summary/profile fragments before the first job title as experience.
+        if not started:
+            continue
         elif current and (
             duration_pattern.search(value) or action_pattern.search(value)
             or value.startswith(("•", "-", "▪"))
@@ -1499,6 +1542,7 @@ if uploaded_file:
             email = extract_email(resume_text)
             phone = extract_phone(resume_text)
             skills = extract_skills(resume_text)
+            soft_skills = extract_soft_skills(resume_text)
             education = extract_education(resume_text)
             experience = extract_experience(resume_text)
             projects = extract_projects(resume_text)
@@ -1591,6 +1635,12 @@ if uploaded_file:
                 st.info("No matching skills detected.")
 
             st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("**Additional / Soft Skills**")
+            if soft_skills:
+                st.write(" • ".join(soft_skills))
+            else:
+                st.write("No additional skills detected.")
 
             # -----------------------------------------
             # 05 EDUCATION AND 06 EXPERIENCE
@@ -1731,10 +1781,16 @@ if uploaded_file:
                 )
 
             skills_text = st.text_area(
-                "Skills (comma-separated or one per line)",
+                "Technical Skills (comma-separated or one per line)",
                 value=", ".join(skills),
                 height=90,
                 key="candidate_skills"
+            )
+
+            soft_skills_text = st.text_input(
+                "Additional / Soft Skills",
+                value=", ".join(soft_skills),
+                key="candidate_soft_skills"
             )
 
             education_text = st.text_area(
@@ -1771,7 +1827,10 @@ if uploaded_file:
                 "email": candidate_email.strip(),
                 "phone": candidate_phone.strip(),
                 "summary": summary.strip(),
-                "skills": skills_text.strip(),
+                "skills": ", ".join(
+                    value for value in [skills_text.strip(), soft_skills_text.strip()]
+                    if value
+                ),
                 "education": education_text.strip(),
                 "experience": experience_text.strip(),
                 "projects": projects_text.strip(),
