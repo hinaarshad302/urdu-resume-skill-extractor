@@ -315,6 +315,12 @@ def extract_skills(text):
         "Word": ["MS Word"],
         "API": ["REST API", "Google Gemini API", "Gemini API"]
     }
+    # Keep the most descriptive Gemini skill label only.
+    if "Google Gemini API" in found:
+        found = [x for x in found if x not in ("Google Gemini", "Gemini API")]
+    elif "Gemini API" in found and "Google Gemini" in found:
+        found.remove("Google Gemini")
+
     for generic, specific_items in specific_to_generic.items():
         if generic in found and any(item in found for item in specific_items):
             found.remove(generic)
@@ -335,7 +341,7 @@ SECTION_ALIASES = {
     "projects": {"project", "projects", "my projects", "personal projects", "academic projects"},
     "experience": {"experience", "work experience", "professional experience", "employment history", "work history"},
     "education": {"education", "academic background", "academic qualification", "qualifications"},
-    "skills": {"skills", "technical skills", "key skills", "core competencies"},
+    "skills": {"skills", "technical skills", "key skills", "core competencies", "additional skills"},
     "summary": {"profile", "professional summary", "career objective", "summary", "about me"},
     "languages": {"languages", "language"},
 }
@@ -346,8 +352,19 @@ ALL_SECTION_HEADINGS = set().union(*SECTION_ALIASES.values()) | {
 }
 
 
+def find_heading_in_line(line):
+    """Recognize standalone headings and headings appended to a name/header."""
+    normalized = normalize_heading(line)
+    for heading in sorted(ALL_SECTION_HEADINGS, key=len, reverse=True):
+        if normalized == heading:
+            return heading
+        if len(normalized) <= 65 and normalized.endswith(" " + heading):
+            return heading
+    return None
+
+
 def is_section_heading(line):
-    return normalize_heading(line) in ALL_SECTION_HEADINGS
+    return find_heading_in_line(line) is not None
 
 
 def get_section_lines(text, section_name):
@@ -356,11 +373,11 @@ def get_section_lines(text, section_name):
     active = False
     collected = []
     for line in lines:
-        heading = normalize_heading(line)
+        heading = find_heading_in_line(line)
         if heading in aliases:
             active = True
             continue
-        if active and heading in ALL_SECTION_HEADINGS:
+        if active and heading:
             break
         if active:
             collected.append(line)
@@ -400,6 +417,9 @@ def extract_education(text):
         if not value or not any(k in lower for k in keywords):
             continue
         key = re.sub(r"[^a-z0-9]", "", lower)
+        # Merge common duplicate degree-name variants (e.g. BSCS / Bachelor of Science in CS).
+        if "computer science" in lower and ("bachelor" in lower or "bscs" in lower or "bs cs" in lower):
+            key = "bachelorcomputerscience"
         if key and key not in seen:
             seen.add(key)
             results.append(value)
