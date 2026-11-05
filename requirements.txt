@@ -5,3 +5,6 @@ pypdf
 python-docx
 Pillow
 openpyxl
+reportlab
+arabic-reshaper
+python-bidi
