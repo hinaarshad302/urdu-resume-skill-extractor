@@ -32,6 +32,7 @@ except ImportError:
     URDU_SHAPING_AVAILABLE = False
 
 
+
 # =====================================================
 # PAGE CONFIGURATION
 # =====================================================
@@ -42,6 +43,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.write("Urdu RAQM Support:", features.check("raqm"))
 
 # =====================================================
 # PROFESSIONAL DESIGN
