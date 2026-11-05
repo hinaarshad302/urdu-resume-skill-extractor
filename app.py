@@ -64,7 +64,7 @@ def get_gemini_client():
 
     return genai.Client(
         api_key=api_key,
-        http_options=types.HttpOptions(timeout=90000)
+        http_options=types.HttpOptions(timeout=45000)
     )
 
 
@@ -117,30 +117,29 @@ ORIGINAL RESUME TEXT:
     model_options = ("gemini-3.8-flash", "gemini-3.5-flash-lite")
 
     for model_name in model_options:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        max_output_tokens=4096,
-                        temperature=0.2
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    max_output_tokens=8192,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="low"
                     )
                 )
-                break
-            except Exception as api_error:
-                last_api_error = api_error
-                error_text = str(api_error).lower()
-                temporary_error = any(
-                    marker in error_text
-                    for marker in ("503", "429", "500", "502", "504",
-                                   "unavailable", "resource_exhausted",
-                                   "high demand", "overloaded")
-                )
-                if not temporary_error:
-                    raise
-                if attempt == 0:
-                    time.sleep(2)
+            )
+            break
+        except Exception as api_error:
+            last_api_error = api_error
+            error_text = str(api_error).lower()
+            temporary_error = any(
+                marker in error_text
+                for marker in ("503", "429", "500", "502", "504",
+                               "unavailable", "resource_exhausted",
+                               "high demand", "overloaded", "timeout")
+            )
+            if not temporary_error:
+                raise
 
         if response is not None:
             break
