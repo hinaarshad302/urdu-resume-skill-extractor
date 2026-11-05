@@ -4,6 +4,7 @@ import re
 import io
 import os
 import html
+import json
 import streamlit as st
 import pdfplumber
 import pandas as pd
@@ -30,50 +31,6 @@ try:
     URDU_SHAPING_AVAILABLE = True
 except ImportError:
     URDU_SHAPING_AVAILABLE = False
-    # =====================================================
-# GEMINI AI CONFIGURATION
-# =====================================================
-
-from google import genai
-
-
-def get_gemini_client():
-
-    api_key = st.secrets.get(
-        "GEMINI_API_KEY",
-        os.getenv("GEMINI_API_KEY")
-    )
-
-    if not api_key:
-        raise ValueError("Gemini API Key is missing.")
-
-    return genai.Client(api_key=api_key)
-
-
-def test_gemini_connection():
-
-    client = get_gemini_client()
-
-   response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents="Reply with exactly: Gemini connection successful."
-)
-
-    return response.text
-    # TEMPORARY GEMINI TEST BUTTON
-
-if st.button("Test Gemini Connection"):
-    try:
-        with st.spinner("Connecting to Gemini..."):
-            result = test_gemini_connection()
-
-        st.success("Gemini Connected Successfully!")
-        st.write(result)
-
-    except Exception as e:
-        st.error(f"Connection Failed: {e}")
-
-
 
 # =====================================================
 # PAGE CONFIGURATION
@@ -85,7 +42,106 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.write("Urdu RAQM Support:", features.check("raqm"))
+# =====================================================
+# GEMINI AI CONFIGURATION
+# =====================================================
+from google import genai
+
+
+def get_gemini_client():
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        api_key = os.getenv("GEMINI_API_KEY")
+
+    if not api_key:
+        raise ValueError(
+            "Gemini API Key missing. Add GEMINI_API_KEY to Streamlit Cloud Secrets."
+        )
+
+    return genai.Client(api_key=api_key)
+
+
+def generate_professional_profiles(profile, resume_text):
+    """Generate factual English and Urdu CV sections from supplied information."""
+    client = get_gemini_client()
+
+    prompt = f"""
+You are a professional resume writer and Urdu translator.
+
+Create a polished English CV profile and a natural professional Urdu
+translation using ONLY the supplied candidate profile and resume text.
+
+STRICT FACTUAL RULES:
+- Never invent education, institutions, degrees, dates, employers, job titles,
+  experience, skills, projects, certifications, achievements, or languages.
+- Do not infer a skill merely because it is related to a project.
+- Do not create experience when the source has none.
+- Preserve candidate name, email, and phone exactly as supplied in the profile.
+- Improve grammar and organization without changing facts.
+- Translate supported content into natural professional Urdu.
+- Keep email and phone unchanged in both language versions.
+- If information is absent, return an empty string for that field.
+- Return valid JSON only. No Markdown fences and no explanation.
+
+Return this exact JSON structure:
+{{
+  "english": {{
+    "name": "", "job": "", "email": "", "phone": "",
+    "summary": "", "skills": "", "education": "",
+    "experience": "", "projects": "", "languages": ""
+  }},
+  "urdu": {{
+    "name": "", "job": "", "email": "", "phone": "",
+    "summary": "", "skills": "", "education": "",
+    "experience": "", "projects": "", "languages": ""
+  }}
+}}
+
+USER-EDITED CANDIDATE PROFILE:
+{json.dumps(profile, ensure_ascii=False)}
+
+ORIGINAL RESUME TEXT:
+{resume_text[:26000]}
+"""
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+
+    raw = (response.text or "").strip()
+    raw = re.sub(r"^\s*```(?:json)?\s*", "", raw, flags=re.I)
+    raw = re.sub(r"\s*```\s*$", "", raw)
+
+    first_brace = raw.find("{")
+    last_brace = raw.rfind("}")
+    if first_brace < 0 or last_brace <= first_brace:
+        raise ValueError("Gemini ne valid JSON response return nahi kiya.")
+
+    result = json.loads(raw[first_brace:last_brace + 1])
+
+    for language_key in ("english", "urdu"):
+        if not isinstance(result.get(language_key), dict):
+            raise ValueError("Gemini response mein English/Urdu profile missing hai.")
+        for field in (
+            "name", "job", "email", "phone", "summary", "skills",
+            "education", "experience", "projects", "languages"
+        ):
+            result[language_key].setdefault(field, "")
+            if result[language_key][field] is None:
+                result[language_key][field] = ""
+
+    for language_key in ("english", "urdu"):
+        result[language_key]["name"] = profile.get("name", "")
+        result[language_key]["email"] = profile.get("email", "")
+        result[language_key]["phone"] = profile.get("phone", "")
+
+    if profile.get("job", "").strip():
+        result["english"]["job"] = profile["job"].strip()
+
+    return result
+
 
 # =====================================================
 # PROFESSIONAL DESIGN
@@ -687,8 +743,13 @@ def build_docx(profile, language, urdu_profile=None):
     if language == "Urdu":
         set_paragraph_rtl(title)
 
-    if profile.get("job"):
-        job_paragraph = doc.add_paragraph(profile["job"])
+    job_value = (
+        urdu_profile.get("job", "")
+        if language == "Urdu"
+        else profile.get("job", "")
+    )
+    if job_value:
+        job_paragraph = doc.add_paragraph(job_value)
         if language == "Urdu":
             set_paragraph_rtl(job_paragraph)
 
@@ -1709,110 +1770,107 @@ if uploaded_file:
             }
 
             # -----------------------------------------
-            # 09 MANUAL URDU CONTENT
+            # 09 GEMINI AI: ENGLISH + URDU CV GENERATION
             # -----------------------------------------
             st.markdown(
-                '<div class="section-heading">09 &nbsp; Urdu CV Content</div>',
+                '<div class="section-heading">09 &nbsp; AI CV Generation</div>',
                 unsafe_allow_html=True
             )
 
             st.caption(
-                "Agar Urdu ya Bilingual CV banana hai to neeche Urdu "
-                "content manually enter karein. Name, email aur phone "
-                "aapke original profile se liye jayenge."
+                "Gemini AI uploaded resume aur edited profile ki madad se "
+                "professional English aur Urdu CV prepare karega. Missing facts "
+                "invent nahi kiye jayenge."
             )
 
-            urdu_profile = {}
+            st.warning(
+                "Generate button press karne par resume ka extracted text Google "
+                "Gemini API ko process karne ke liye send hoga. Sensitive data "
+                "upload karne se pehle privacy ka khayal rakhein."
+            )
 
-            with st.expander(
-                "✍️ Enter Urdu CV Details",
-                expanded=(language != "English")
+            if "ai_generated_profiles" not in st.session_state:
+                st.session_state["ai_generated_profiles"] = None
+
+            if st.button(
+                "✨ Generate English & Urdu CV with Gemini AI",
+                type="primary",
+                use_container_width=True,
+                key="generate_ai_cv"
             ):
+                try:
+                    with st.spinner(
+                        "Gemini AI aapki English aur Urdu CV bana raha hai..."
+                    ):
+                        st.session_state["ai_generated_profiles"] = (
+                            generate_professional_profiles(profile, resume_text)
+                        )
+                    st.success("English aur Urdu CV generate ho gayi!")
+                except Exception as ai_error:
+                    st.session_state["ai_generated_profiles"] = None
+                    st.error(f"Gemini AI error: {ai_error}")
 
-                urdu_profile["summary"] = st.text_area(
-                    "پیشہ ورانہ تعارف",
-                    key="urdu_summary",
-                    height=100,
-                    placeholder="اپنا پیشہ ورانہ تعارف اردو میں لکھیں"
-                )
+            ai_profiles = st.session_state.get("ai_generated_profiles")
+            urdu_profile = (
+                ai_profiles.get("urdu", {})
+                if isinstance(ai_profiles, dict)
+                else {}
+            )
+            english_ai_profile = (
+                ai_profiles.get("english", {})
+                if isinstance(ai_profiles, dict)
+                else {}
+            )
 
-                urdu_profile["skills"] = st.text_area(
-                    "مہارتیں",
-                    key="urdu_skills",
-                    height=90,
-                    placeholder="اپنی مہارتیں اردو میں لکھیں"
-                )
+            if ai_profiles:
+                st.markdown("### 👁️ AI-generated CV Preview")
 
-                urdu_profile["education"] = st.text_area(
-                    "تعلیم",
-                    key="urdu_education",
-                    height=100,
-                    placeholder="اپنی تعلیمی معلومات اردو میں لکھیں"
-                )
-
-                urdu_profile["experience"] = st.text_area(
-                    "تجربہ",
-                    key="urdu_experience",
-                    height=100,
-                    placeholder="اپنا تجربہ اردو میں لکھیں"
-                )
-
-                urdu_profile["projects"] = st.text_area(
-                    "منصوبے",
-                    key="urdu_projects",
-                    height=100,
-                    placeholder="اپنے منصوبوں کی تفصیل اردو میں لکھیں"
-                )
-
-                urdu_profile["languages"] = st.text_area(
-                    "زبانیں",
-                    key="urdu_languages",
-                    height=70,
-                    placeholder="مثلاً اردو، انگریزی"
-                )
-
-            # -----------------------------------------
-            # 09A LIVE URDU CONTENT PREVIEW
-            # -----------------------------------------
-            st.markdown("#### 👁️ Urdu Content Preview")
-            urdu_preview_items = [
-                ("پیشہ ورانہ تعارف", urdu_profile.get("summary", "")),
-                ("مہارتیں", urdu_profile.get("skills", "")),
-                ("تعلیم", urdu_profile.get("education", "")),
-                ("تجربہ", urdu_profile.get("experience", "")),
-                ("منصوبے", urdu_profile.get("projects", "")),
-                ("زبانیں", urdu_profile.get("languages", ""))
-            ]
-            filled_urdu_items = [
-                (heading, value) for heading, value in urdu_preview_items
-                if str(value or "").strip()
-            ]
-
-            if language in ["Urdu", "Bilingual"]:
-                if filled_urdu_items:
+                if language in ["English", "Bilingual"]:
+                    st.markdown("#### English CV")
                     st.markdown(
-                        '<div class="content-card" dir="rtl" style="text-align:right;">',
+                        f"### {html.escape(str(english_ai_profile.get('name') or profile.get('name') or ''))}"
+                    )
+                    if english_ai_profile.get("job"):
+                        st.write(english_ai_profile["job"])
+                    for key in SECTION_KEYS:
+                        value = str(english_ai_profile.get(key, "") or "").strip()
+                        if value:
+                            st.markdown(f"**{LABELS['English'][key]}**")
+                            st.write(value)
+
+                if language in ["Urdu", "Bilingual"]:
+                    st.markdown("---")
+                    st.markdown("#### اردو سی وی")
+                    st.markdown(
+                        '<div dir="rtl" style="text-align:right;">',
                         unsafe_allow_html=True
                     )
-                    st.markdown(f"### {html.escape(profile.get('name') or 'نام درج نہیں')}")
-                    st.caption(
-                        f"{html.escape(profile.get('email') or '')}  |  "
-                        f"{html.escape(profile.get('phone') or '')}"
+                    st.markdown(
+                        f"### {html.escape(str(urdu_profile.get('name') or profile.get('name') or ''))}"
                     )
-                    for heading, value in filled_urdu_items:
-                        st.markdown(f"**{heading}**")
+                    if urdu_profile.get("job"):
                         st.markdown(
-                            '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
-                            + html.escape(str(value))
+                            '<div dir="rtl" style="text-align:right;">'
+                            + html.escape(str(urdu_profile["job"]))
                             + '</div>',
                             unsafe_allow_html=True
                         )
-                        st.divider()
+                    for key in SECTION_KEYS:
+                        value = str(urdu_profile.get(key, "") or "").strip()
+                        if value:
+                            st.markdown(f"**{LABELS['Urdu'][key]}**")
+                            st.markdown(
+                                '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
+                                + html.escape(value)
+                                + '</div>',
+                                unsafe_allow_html=True
+                            )
                     st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.info("Urdu preview yahan show hoga. Pehle Section 09 ke Urdu fields fill karein.")
             else:
-                st.info("Urdu preview dekhne ke liye CV Language mein Urdu ya Bilingual select karein.")
+                st.info(
+                    "Pehle 'Generate English & Urdu CV with Gemini AI' button press karein. "
+                    "Uske baad AI preview aur Urdu export available hoga."
+                )
 
             # -----------------------------------------
             # 10 EXPORT PROFESSIONAL CV
@@ -1847,19 +1905,14 @@ if uploaded_file:
                         "CV mein include nahi honge."
                     )
 
-            if language == "English":
-                st.caption("Export preview: English profile fields will be included.")
+            if not ai_profiles:
+                st.info("AI CV generate hone ke baad Word, PDF aur Excel exports mein AI-written sections use honge.")
+            elif language == "English":
+                st.caption("Export preview: Gemini-generated English profile.")
             elif language == "Urdu":
-                st.caption("Export preview: manually entered Urdu sections will be included. Name and contact details remain from your profile.")
+                st.caption("Export preview: Gemini-generated Urdu profile.")
             else:
-                st.caption("Export preview: English and manually entered Urdu sections will be included together.")
-
-            if language in ["Urdu", "Bilingual"]:
-                filled_count = sum(
-                    1 for key in SECTION_KEYS
-                    if str(urdu_profile.get(key, "") or "").strip()
-                )
-                st.caption(f"Urdu sections completed: {filled_count}/{len(SECTION_KEYS)}")
+                st.caption("Export preview: English and Urdu AI-generated sections.")
 
             # Final CV preview before download
             st.markdown("### 📄 Final CV Preview")
@@ -1884,21 +1937,23 @@ if uploaded_file:
                 ("Languages", "languages")
             ]
             if language in ["English", "Bilingual"]:
+                english_preview = english_ai_profile if ai_profiles else profile
                 for heading, key in preview_fields:
-                    value = profile.get(key, "")
+                    value = english_preview.get(key, "")
                     if value:
                         st.markdown(f"**{heading}**")
                         st.write(value)
 
-            if language in ["Urdu", "Bilingual"]:
+            if language in ["Urdu", "Bilingual"] and ai_profiles:
                 st.markdown("---")
                 st.markdown('<div dir="rtl" style="text-align:right;">', unsafe_allow_html=True)
-                for heading, value in urdu_preview_items:
-                    if str(value or "").strip():
-                        st.markdown(f"**{heading}**")
+                for key in SECTION_KEYS:
+                    value = str(urdu_profile.get(key, "") or "").strip()
+                    if value:
+                        st.markdown(f"**{LABELS['Urdu'][key]}**")
                         st.markdown(
                             '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
-                            + html.escape(str(value))
+                            + html.escape(value)
                             + '</div>',
                             unsafe_allow_html=True
                         )
@@ -1912,8 +1967,18 @@ if uploaded_file:
 
                 try:
 
+                    export_profile = (
+                        english_ai_profile.copy()
+                        if ai_profiles else profile.copy()
+                    )
+                    export_profile["name"] = profile.get("name", "")
+                    export_profile["email"] = profile.get("email", "")
+                    export_profile["phone"] = profile.get("phone", "")
+                    if not export_profile.get("job"):
+                        export_profile["job"] = profile.get("job", "")
+
                     word_file = build_docx(
-                        profile,
+                        export_profile,
                         language,
                         urdu_profile
                     )
@@ -1934,7 +1999,7 @@ if uploaded_file:
                 try:
 
                     excel_file = build_xlsx(
-                        profile,
+                        export_profile,
                         language,
                         urdu_profile
                     )
@@ -1955,7 +2020,7 @@ if uploaded_file:
                 try:
 
                     pdf_file = build_pdf(
-                        profile,
+                        export_profile,
                         language,
                         urdu_profile
                     )
@@ -1974,12 +2039,11 @@ if uploaded_file:
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.info(
-                "Important: Urdu content is entered manually. This app "
-                "does not automatically translate English into Urdu. "
-                "Review all candidate information before using the CV. "
-                "The current parser uses rule-based detection and does "
-                "not yet support OCR for scanned resumes. PDF column "
-                "layouts may affect automatic section detection."
+                "Important: Gemini AI English aur Urdu CV prepare karta hai, "
+                "lekin final download se pehle tamam details verify karein. "
+                "AI missing education, experience, dates ya achievements "
+                "invent nahi karna chahiye. Scanned PDFs ke liye OCR abhi "
+                "available nahi; PDF column layouts extraction ko affect kar sakte hain."
             )
 
     except Exception as error:
