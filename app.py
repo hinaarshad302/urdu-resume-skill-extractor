@@ -617,31 +617,39 @@ def build_docx(profile, language, urdu_profile=None):
     section.left_margin = Inches(0.7)
     section.right_margin = Inches(0.7)
 
-    normal = doc.styles["Normal"]
-    normal.font.name = "Aptos"
-    normal.font.size = Pt(10)
-    title = doc.add_heading(profile["name"] or "Candidate CV", 0)
+    doc.styles["Normal"].font.name = "Aptos"
+    doc.styles["Normal"].font.size = Pt(10)
+
+    title = doc.add_heading(profile.get("name") or "Candidate CV", 0)
     if language == "Urdu":
         set_paragraph_rtl(title)
-    if profile["job"]:
-        p = doc.add_paragraph(profile["job"])
+
+    if profile.get("job"):
+        job_paragraph = doc.add_paragraph(profile["job"])
         if language == "Urdu":
-            set_paragraph_rtl(p)
-    contact = " | ".join(x for x in [profile["email"], profile["phone"]] if x)
+            set_paragraph_rtl(job_paragraph)
+
+    contact = " | ".join(
+        value for value in [profile.get("email", ""), profile.get("phone", "")]
+        if value
+    )
     if contact:
         doc.add_paragraph(contact)
 
     for key in SECTION_KEYS:
-        if language in ("English", "Bilingual"):
-            add_docx_section(doc, LABELS["English"][key], profile.get(key, ""))
-        if language in ("Urdu", "Bilingual"):
-            add_docx_section(
-                doc, LABELS["Urdu"][key], urdu_profile.get(key, ""), rtl=True
-            )
+        english_value = str(profile.get(key, "") or "").strip()
+        urdu_value = str(urdu_profile.get(key, "") or "").strip()
+
+        if language in ("English", "Bilingual") and english_value:
+            add_docx_section(doc, LABELS["English"][key], english_value)
+
+        if language in ("Urdu", "Bilingual") and urdu_value:
+            add_docx_section(doc, LABELS["Urdu"][key], urdu_value, rtl=True)
 
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer.add_run("Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad")
+
     output = io.BytesIO()
     doc.save(output)
     return output.getvalue()
@@ -650,64 +658,45 @@ def build_docx(profile, language, urdu_profile=None):
 # EXCEL EXPORT
 # =====================================================
 def build_xlsx(profile, language, urdu_profile=None):
-
-    from openpyxl.styles import (
-        Font, PatternFill, Alignment, Border, Side
-    )
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
     urdu_profile = urdu_profile or {}
     rows = []
 
+    contact_language = "Urdu" if language == "Urdu" else "English"
     rows.extend([
-        [LABELS["English"]["name"], profile["name"]],
-        [LABELS["English"]["job"], profile["job"]],
-        [LABELS["English"]["email"], profile["email"]],
-        [LABELS["English"]["phone"], profile["phone"]]
+        [LABELS[contact_language]["name"], profile.get("name", "")],
+        [LABELS[contact_language]["job"], profile.get("job", "")],
+        [LABELS[contact_language]["email"], profile.get("email", "")],
+        [LABELS[contact_language]["phone"], profile.get("phone", "")]
     ])
 
     for key in SECTION_KEYS:
+        en_value = str(profile.get(key, "") or "").strip()
+        ur_value = str(urdu_profile.get(key, "") or "").strip()
 
         if language == "Urdu":
-
-            rows.append([
-                LABELS["Urdu"][key],
-                urdu_profile.get(key, "")
-            ])
-
+            if ur_value:
+                rows.append([LABELS["Urdu"][key], ur_value])
         elif language == "Bilingual":
+            values = [value for value in [en_value, ur_value] if value]
+            if values:
+                rows.append([
+                    LABELS["English"][key] + " / " + LABELS["Urdu"][key],
+                    "\n\n".join(values)
+                ])
+        elif en_value:
+            rows.append([LABELS["English"][key], en_value])
 
-            rows.append([
-                LABELS["English"][key] + " / " + LABELS["Urdu"][key],
-                profile.get(key, "") + "\n\n" + urdu_profile.get(key, "")
-            ])
-
-        else:
-
-            rows.append([
-                LABELS["English"][key],
-                profile.get(key, "")
-            ])
-
-    df = pd.DataFrame(
-        rows,
-        columns=["Field", "Candidate Information"]
-    )
-
+    df = pd.DataFrame(rows, columns=["Field", "Candidate Information"])
     output = io.BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-
-        df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Candidate Profile"
-        )
-
+        df.to_excel(writer, index=False, sheet_name="Candidate Profile")
         ws = writer.sheets["Candidate Profile"]
 
         ws.column_dimensions["A"].width = 34
         ws.column_dimensions["B"].width = 68
-
         ws.sheet_view.rightToLeft = language in ["Urdu", "Bilingual"]
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
@@ -716,36 +705,25 @@ def build_xlsx(profile, language, urdu_profile=None):
         thin_gray = Side(style="thin", color="E5EAF1")
 
         for cell in ws[1]:
-
-            cell.font = Font(
-                bold=True,
-                color="FFFFFF",
-                size=11
-            )
-
+            cell.font = Font(bold=True, color="FFFFFF", size=11)
             cell.fill = header_fill
-
             cell.alignment = Alignment(
                 horizontal="right" if language == "Urdu" else "left",
                 vertical="center"
             )
 
         for row in ws.iter_rows(min_row=2):
-
             for cell in row:
-
                 cell.alignment = Alignment(
                     horizontal="right" if language in ["Urdu", "Bilingual"] else "left",
                     vertical="top",
                     wrap_text=True
                 )
-
                 cell.border = Border(bottom=thin_gray)
 
         ws.row_dimensions[1].height = 25
 
     return output.getvalue()
-
 
 # =====================================================
 # PDF EXPORT - URDU SHAPING + RIGHT TO LEFT
@@ -772,8 +750,8 @@ def build_pdf(profile, language, urdu_profile=None):
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         "CVTitle", parent=styles["Title"], fontName="Helvetica-Bold",
-        fontSize=19, leading=27, textColor=colors.HexColor("#102A43"),
-        alignment=TA_LEFT, spaceAfter=10
+        fontSize=19, leading=32, textColor=colors.HexColor("#102A43"),
+        alignment=TA_RIGHT if language == "Urdu" else TA_LEFT, spaceAfter=10
     )
     english_heading = ParagraphStyle(
         "EnglishHeading", parent=styles["Heading2"],
@@ -814,10 +792,10 @@ def build_pdf(profile, language, urdu_profile=None):
         return "<br/>".join(shaped)
 
     story = []
-    story.append(Paragraph(safe_text(profile["name"] or "Candidate CV"), title_style))
-    if profile["job"]:
+    story.append(Paragraph(safe_text(profile.get("name") or "Candidate CV"), title_style))
+    if profile.get("job"):
         story.append(Paragraph(safe_text(profile["job"]), english_body))
-    contact = " | ".join(x for x in [profile["email"], profile["phone"]] if x)
+    contact = " | ".join(x for x in [profile.get("email", ""), profile.get("phone", "")] if x)
     if contact:
         story.append(Paragraph(safe_text(contact), english_body))
 
@@ -1430,6 +1408,20 @@ if uploaded_file:
                         "ke liye Urdu content enter karein. Empty fields "
                         "CV mein include nahi honge."
                     )
+
+            if language == "English":
+                st.caption("Export preview: English profile fields will be included.")
+            elif language == "Urdu":
+                st.caption("Export preview: manually entered Urdu sections will be included. Name and contact details remain from your profile.")
+            else:
+                st.caption("Export preview: English and manually entered Urdu sections will be included together.")
+
+            if language in ["Urdu", "Bilingual"]:
+                filled_count = sum(
+                    1 for key in SECTION_KEYS
+                    if str(urdu_profile.get(key, "") or "").strip()
+                )
+                st.caption(f"Urdu sections completed: {filled_count}/{len(SECTION_KEYS)}")
 
             e1, e2, e3 = st.columns(3)
 
