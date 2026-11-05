@@ -946,160 +946,126 @@ def build_pdf(profile, language, urdu_profile=None):
     story = []
 
     # -------------------------------------------------
-    # URDU LINE FLOWABLE
-    # Dynamic height to prevent Nastaliq text clipping
+    # URDU TEXT RENDERING
+    # Prefer Pillow RAQM for proper Urdu shaping. If RAQM
+    # is unavailable, use arabic_reshaper + python-bidi.
     # -------------------------------------------------
 
-    class UrduLine(Flowable):
+    try:
+        URDU_RAQM_AVAILABLE = features.check("raqm")
+    except Exception:
+        URDU_RAQM_AVAILABLE = False
 
+    def make_urdu_font(font_size, scale=3):
+        layout = (
+            ImageFont.Layout.RAQM
+            if URDU_RAQM_AVAILABLE
+            else ImageFont.Layout.BASIC
+        )
+        return ImageFont.truetype(
+            font_path,
+            int(font_size * scale),
+            layout_engine=layout
+        )
+
+    def prepare_urdu_text(value):
+        value = str(value)
+        if URDU_RAQM_AVAILABLE:
+            return value
+        return get_display(
+            arabic_reshaper.reshape(value),
+            base_dir="R"
+        )
+
+    def urdu_text_bbox(draw, value, font):
+        if URDU_RAQM_AVAILABLE:
+            return draw.textbbox(
+                (0, 0), value, font=font,
+                direction="rtl", language="ur"
+            )
+        return draw.textbbox((0, 0), value, font=font)
+
+    def draw_urdu_text(draw, position, value, font, fill):
+        if URDU_RAQM_AVAILABLE:
+            draw.text(
+                position, value, font=font, fill=fill,
+                direction="rtl", language="ur"
+            )
+        else:
+            draw.text(position, value, font=font, fill=fill)
+
+    class UrduLine(Flowable):
         def __init__(
-            self,
-            text,
-            font_size=10,
-            color="#222222",
-            space_after=5,
-            right_align=True
+            self, text, font_size=10, color="#222222",
+            space_after=5, right_align=True
         ):
             Flowable.__init__(self)
-
             self.text = str(text)
+            self.visual = prepare_urdu_text(self.text)
             self.font_size = font_size
             self.color = color
             self.space_after = space_after
             self.right_align = right_align
             self.scale = 3
+            self.font = make_urdu_font(font_size, self.scale)
 
-            self.font = ImageFont.truetype(
-                font_path,
-                int(font_size * self.scale)
-            )
-
-            reshaped = arabic_reshaper.reshape(self.text)
-            self.visual = get_display(
-                reshaped,
-                base_dir="R"
-            )
-
-            dummy = ImageDraw.Draw(
-                PILImage.new("RGB", (10, 10))
-            )
-
-            bbox = dummy.textbbox(
-                (0, 0),
-                self.visual,
-                font=self.font
-            )
-
+            dummy = ImageDraw.Draw(PILImage.new("RGB", (10, 10)))
+            bbox = urdu_text_bbox(dummy, self.visual, self.font)
             self.text_width = bbox[2] - bbox[0]
             self.text_height = bbox[3] - bbox[1]
             self.text_top = bbox[1]
-
-            # Dynamic line height
             self.line_height = max(
-                40,
-                (self.text_height + 30) / self.scale
+                40, (self.text_height + 30) / self.scale
             )
-
-            self.height = (
-                self.line_height + self.space_after
-            )
+            self.height = self.line_height + self.space_after
 
         def wrap(self, availWidth, availHeight):
             self.width = availWidth
-
-            return (
-                availWidth,
-                self.height
-            )
+            return availWidth, self.height
 
         def draw(self):
-
-            image_width = max(
-                1,
-                int(self.width * self.scale)
-            )
-
-            image_height = max(
-                1,
-                int(self.line_height * self.scale)
-            )
-
+            image_width = max(1, int(self.width * self.scale))
+            image_height = max(1, int(self.line_height * self.scale))
             image = PILImage.new(
-                "RGBA",
-                (image_width, image_height),
+                "RGBA", (image_width, image_height),
                 (255, 255, 255, 0)
             )
-
             draw = ImageDraw.Draw(image)
 
-            # Right-to-left alignment
             if self.right_align:
                 x = image_width - self.text_width - 12
             else:
                 x = 12
-
             x = max(0, x)
+            y = (image_height - self.text_height) // 2 - self.text_top
 
-            # Vertical centering
-            y = (
-                image_height - self.text_height
-            ) // 2 - self.text_top
-
-            draw.text(
-                (x, y),
-                self.visual,
-                font=self.font,
-                fill=self.color
+            draw_urdu_text(
+                draw, (x, y), self.visual, self.font, self.color
             )
 
             image_buffer = io.BytesIO()
-
-            image.save(
-                image_buffer,
-                format="PNG"
-            )
-
+            image.save(image_buffer, format="PNG")
             image_buffer.seek(0)
-
             self.canv.drawImage(
-                ImageReader(image_buffer),
-                0,
-                self.space_after,
-                width=self.width,
-                height=self.line_height,
-                mask="auto"
+                ImageReader(image_buffer), 0, self.space_after,
+                width=self.width, height=self.line_height, mask="auto"
             )
 
     # -------------------------------------------------
     # URDU TEXT WRAPPING
     # -------------------------------------------------
 
-    def add_urdu_text(
-        value,
-        font_size=10,
-        color="#222222",
-        space_after=5
-    ):
-
+    def add_urdu_text(value, font_size=10, color="#222222", space_after=5):
         if value is None or not str(value).strip():
             return
 
         max_width = doc.width
         scale = 3
-
-        font = ImageFont.truetype(
-            font_path,
-            int(font_size * scale)
-        )
-
-        dummy = ImageDraw.Draw(
-            PILImage.new("RGB", (10, 10))
-        )
+        font = make_urdu_font(font_size, scale)
+        dummy = ImageDraw.Draw(PILImage.new("RGB", (10, 10)))
 
         for paragraph in str(value).splitlines():
-
             paragraph = paragraph.strip()
-
             if not paragraph:
                 continue
 
@@ -1107,52 +1073,22 @@ def build_pdf(profile, language, urdu_profile=None):
             current_line = ""
 
             for word in words:
-
-                test_line = (
-                    current_line + " " + word
-                ).strip()
-
-                shaped = get_display(
-                    arabic_reshaper.reshape(test_line),
-                    base_dir="R"
-                )
-
-                bbox = dummy.textbbox(
-                    (0, 0),
-                    shaped,
-                    font=font
-                )
-
+                test_line = (current_line + " " + word).strip()
+                visual = prepare_urdu_text(test_line)
+                bbox = urdu_text_bbox(dummy, visual, font)
                 text_width = bbox[2] - bbox[0]
 
-                if (
-                    text_width > max_width * scale
-                    and current_line
-                ):
-
+                if text_width > max_width * scale and current_line:
                     story.append(
-                        UrduLine(
-                            current_line,
-                            font_size,
-                            color,
-                            3
-                        )
+                        UrduLine(current_line, font_size, color, 3)
                     )
-
                     current_line = word
-
                 else:
                     current_line = test_line
 
             if current_line:
-
                 story.append(
-                    UrduLine(
-                        current_line,
-                        font_size,
-                        color,
-                        space_after
-                    )
+                    UrduLine(current_line, font_size, color, space_after)
                 )
 
     # -------------------------------------------------
