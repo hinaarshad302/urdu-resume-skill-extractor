@@ -1730,13 +1730,6 @@ if uploaded_file:
                     key="candidate_summary"
                 )
 
-            language = st.selectbox(
-                "Select CV Language / CV ki zaban",
-                ["English", "Urdu", "Bilingual"],
-                key="cv_language",
-                help="Apni CV ki language select karein: English, Urdu ya dono."
-            )
-
             skills_text = st.text_area(
                 "Skills (comma-separated or one per line)",
                 value=", ".join(skills),
@@ -1839,74 +1832,9 @@ if uploaded_file:
             )
 
             if ai_profiles:
-                st.markdown("### 👁️ AI-generated CV Preview")
+                st.markdown("### 👁️ Professional CV Previews")
 
-                if language in ["English", "Bilingual"]:
-                    st.markdown("#### English CV")
-                    st.markdown(
-                        f"### {html.escape(str(english_ai_profile.get('name') or profile.get('name') or ''))}"
-                    )
-                    if english_ai_profile.get("job"):
-                        st.write(english_ai_profile["job"])
-                    for key in SECTION_KEYS:
-                        value = str(english_ai_profile.get(key, "") or "").strip()
-                        if value:
-                            st.markdown(f"**{LABELS['English'][key]}**")
-                            st.write(value)
-
-                if language in ["Urdu", "Bilingual"]:
-                    st.markdown("---")
-                    st.markdown("#### اردو سی وی")
-                    st.markdown(
-                        '<div dir="rtl" style="text-align:right;">',
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        f"### {html.escape(str(urdu_profile.get('name') or profile.get('name') or ''))}"
-                    )
-                    if urdu_profile.get("job"):
-                        st.markdown(
-                            '<div dir="rtl" style="text-align:right;">'
-                            + html.escape(str(urdu_profile["job"]))
-                            + '</div>',
-                            unsafe_allow_html=True
-                        )
-                    for key in SECTION_KEYS:
-                        value = str(urdu_profile.get(key, "") or "").strip()
-                        if value:
-                            st.markdown(f"**{LABELS['Urdu'][key]}**")
-                            st.markdown(
-                                '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
-                                + html.escape(value)
-                                + '</div>',
-                                unsafe_allow_html=True
-                            )
-                    st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.info(
-                    "Pehle 'Generate English & Urdu CV with Gemini AI' button press karein. "
-                    "Uske baad AI preview aur Urdu export available hoga."
-                )
-
-            # -----------------------------------------
-            # 10 EXPORT ENGLISH AND URDU CV SEPARATELY
-            # -----------------------------------------
-            st.markdown(
-                '<div class="section-heading">10 &nbsp; Export Separate CVs</div>',
-                unsafe_allow_html=True
-            )
-            st.markdown('<div class="content-card">', unsafe_allow_html=True)
-            st.write(
-                "English aur Urdu CV alag-alag files mein download karein. "
-                "Dono CVs ek doosre ke text ke saath mix nahi hongi."
-            )
-
-            if not ai_profiles:
-                st.info(
-                    "Pehle 'Generate English & Urdu CV with Gemini AI' button "
-                    "press karein. Uske baad dono separate CVs download kar sakti hain."
-                )
-            else:
+                # Prepare independent export profiles.
                 english_export_profile = english_ai_profile.copy()
                 english_export_profile["name"] = profile.get("name", "")
                 english_export_profile["email"] = profile.get("email", "")
@@ -1914,104 +1842,129 @@ if uploaded_file:
                 if not english_export_profile.get("job"):
                     english_export_profile["job"] = profile.get("job", "")
 
-                st.markdown("### 🇬🇧 English CV")
-                st.caption("Is section ki files mein sirf English profile hogi.")
-                en1, en2, en3 = st.columns(3)
+                st.markdown("## 🇬🇧 English CV Preview")
+                st.markdown(
+                    f"### {html.escape(str(english_ai_profile.get('name') or profile.get('name') or ''))}"
+                )
+                if english_ai_profile.get("job"):
+                    st.write(english_ai_profile["job"])
+                for key in SECTION_KEYS:
+                    value = str(english_ai_profile.get(key, "") or "").strip()
+                    if value:
+                        st.markdown(f"**{LABELS['English'][key]}**")
+                        st.write(value)
 
+                st.markdown("### Download English CV")
+                st.caption("English preview ke neeche sirf English CV files download karein.")
+                en1, en2, en3 = st.columns(3)
                 with en1:
                     try:
                         en_docx = build_docx(english_export_profile, "English", {})
                         st.download_button(
-                            "⬇ English Word",
-                            en_docx,
+                            "⬇ English Word", en_docx,
                             "Hina_Arshad_English_CV.docx",
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True,
-                            key="download_english_word"
+                            use_container_width=True, key="download_english_word"
                         )
                     except Exception as err:
                         st.error(f"English Word export error: {err}")
-
                 with en2:
                     try:
                         en_xlsx = build_xlsx(english_export_profile, "English", {})
                         st.download_button(
-                            "⬇ English Excel",
-                            en_xlsx,
+                            "⬇ English Excel", en_xlsx,
                             "Hina_Arshad_English_CV.xlsx",
                             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key="download_english_excel"
+                            use_container_width=True, key="download_english_excel"
                         )
                     except Exception as err:
                         st.error(f"English Excel export error: {err}")
-
                 with en3:
                     try:
                         en_pdf = build_pdf(english_export_profile, "English", {})
                         st.download_button(
-                            "⬇ English PDF",
-                            en_pdf,
+                            "⬇ English PDF", en_pdf,
                             "Hina_Arshad_English_CV.pdf",
                             "application/pdf",
-                            use_container_width=True,
-                            key="download_english_pdf"
+                            use_container_width=True, key="download_english_pdf"
                         )
                     except Exception as err:
                         st.error(f"English PDF export error: {err}")
 
                 st.divider()
-                st.markdown("### اردو CV")
-                st.caption(
-                    "Is section ki files mein Urdu profile hogi. "
-                    "Technology names (FastAPI, Gemini, RAG) apne original English naam mein reh sakte hain."
+                st.markdown("## اردو سی وی کا پیش نظارہ")
+                st.markdown(
+                    '<div dir="rtl" style="text-align:right;">',
+                    unsafe_allow_html=True
                 )
+                st.markdown(
+                    f"### {html.escape(str(urdu_profile.get('name') or profile.get('name') or ''))}"
+                )
+                if urdu_profile.get("job"):
+                    st.markdown(
+                        '<div dir="rtl" style="text-align:right;">'
+                        + html.escape(str(urdu_profile["job"]))
+                        + '</div>',
+                        unsafe_allow_html=True
+                    )
+                for key in SECTION_KEYS:
+                    value = str(urdu_profile.get(key, "") or "").strip()
+                    if value:
+                        st.markdown(
+                            f"**{LABELS['Urdu'][key]}**"
+                        )
+                        st.markdown(
+                            '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
+                            + html.escape(value)
+                            + '</div>',
+                            unsafe_allow_html=True
+                        )
+                st.markdown("</div>", unsafe_allow_html=True)
 
+                st.markdown("### اردو سی وی ڈاؤن لوڈ کریں")
+                st.caption(
+                    "Neeche wali files mein Urdu CV ka content hoga. "
+                    "Naam, email, phone aur official technology/project names apni asal spelling mein rahenge."
+                )
                 ur1, ur2, ur3 = st.columns(3)
-
                 with ur1:
                     try:
                         ur_docx = build_docx(profile, "Urdu", urdu_profile)
                         st.download_button(
-                            "⬇ Urdu Word",
-                            ur_docx,
+                            "⬇ Urdu Word", ur_docx,
                             "Hina_Arshad_Urdu_CV.docx",
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True,
-                            key="download_urdu_word"
+                            use_container_width=True, key="download_urdu_word"
                         )
                     except Exception as err:
                         st.error(f"Urdu Word export error: {err}")
-
                 with ur2:
                     try:
                         ur_xlsx = build_xlsx(profile, "Urdu", urdu_profile)
                         st.download_button(
-                            "⬇ Urdu Excel",
-                            ur_xlsx,
+                            "⬇ Urdu Excel", ur_xlsx,
                             "Hina_Arshad_Urdu_CV.xlsx",
                             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key="download_urdu_excel"
+                            use_container_width=True, key="download_urdu_excel"
                         )
                     except Exception as err:
                         st.error(f"Urdu Excel export error: {err}")
-
                 with ur3:
                     try:
                         ur_pdf = build_pdf(profile, "Urdu", urdu_profile)
                         st.download_button(
-                            "⬇ Urdu PDF",
-                            ur_pdf,
+                            "⬇ Urdu PDF", ur_pdf,
                             "Hina_Arshad_Urdu_CV.pdf",
                             "application/pdf",
-                            use_container_width=True,
-                            key="download_urdu_pdf"
+                            use_container_width=True, key="download_urdu_pdf"
                         )
                     except Exception as err:
                         st.error(f"Urdu PDF export error: {err}")
-
-            st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info(
+                    "Pehle 'Generate English & Urdu CV with Gemini AI' button press karein. "
+                    "Uske baad English preview, Urdu preview aur unki separate download files nazar aayengi."
+                )
 
             st.info(
                 "Important: Download se pehle tamam details verify karein. "
