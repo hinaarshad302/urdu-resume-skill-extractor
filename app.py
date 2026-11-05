@@ -8,15 +8,16 @@ import pdfplumber
 import pandas as pd
 
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
-from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
@@ -83,64 +84,39 @@ html, body, [class*="css"] {font-family:'Inter',sans-serif;}
 # SKILL DATABASE
 # =====================================================
 SKILLS = [
-    "python", "java", "javascript", "c++", "c#",
-    "html", "css", "react", "node.js", "sql",
-    "mysql", "mongodb", "machine learning",
-    "deep learning", "artificial intelligence",
-    "generative ai", "agentic ai", "ai agents",
-    "natural language processing", "computer vision",
-    "data science", "data analysis",
-    "streamlit", "fastapi", "django", "flask",
-    "pandas", "numpy", "tensorflow", "pytorch",
-    "git", "github", "google gemini",
-    "google gemini api", "gemini api",
-    "prompt engineering", "rag",
-    "retrieval augmented generation",
-    "faiss", "sentence transformers",
-    "langchain", "langgraph", "crewai",
-    "n8n", "make.com", "automation",
-    "ai automation", "api", "rest api",
-    "pypdf", "pdfplumber", "gradio",
-    "communication", "teamwork",
-    "time management", "problem solving",
-    "project management", "ms word",
-    "ms excel", "ms office", "excel",
-    "word", "documentation"
+    "retrieval augmented generation", "sentence transformers",
+    "natural language processing", "artificial intelligence",
+    "machine learning", "deep learning", "computer vision",
+    "project management", "problem solving", "time management",
+    "google gemini api", "google gemini", "generative ai",
+    "agentic ai", "ai agents", "ai automation",
+    "javascript", "typescript", "python", "java", "c++", "c#",
+    "html", "css", "react", "node.js", "sql", "mysql",
+    "mongodb", "data science", "data analysis", "streamlit",
+    "fastapi", "django", "flask", "pandas", "numpy",
+    "tensorflow", "pytorch", "github", "git", "gemini api",
+    "prompt engineering", "rag", "faiss", "langchain",
+    "langgraph", "crewai", "n8n", "make.com", "automation",
+    "api", "rest api", "pypdf", "pdfplumber", "gradio",
+    "communication", "teamwork", "ms word", "ms excel",
+    "ms office", "excel", "documentation"
 ]
 
 SKILL_DISPLAY = {
-    "javascript": "JavaScript",
-    "html": "HTML",
-    "css": "CSS",
-    "fastapi": "FastAPI",
-    "node.js": "Node.js",
-    "mysql": "MySQL",
-    "mongodb": "MongoDB",
-    "github": "GitHub",
-    "python": "Python",
-    "c++": "C++",
-    "c#": "C#",
-    "sql": "SQL",
-    "api": "API",
-    "rest api": "REST API",
-    "ms office": "MS Office",
-    "ms word": "MS Word",
-    "ms excel": "MS Excel",
-    "google gemini api": "Google Gemini API",
-    "google gemini": "Google Gemini",
-    "gemini api": "Gemini API",
-    "generative ai": "Generative AI",
-    "agentic ai": "Agentic AI",
-    "ai agents": "AI Agents",
-    "rag": "RAG",
-    "faiss": "FAISS",
-    "pypdf": "PyPDF",
-    "n8n": "n8n",
-    "make.com": "Make.com",
-    "langchain": "LangChain",
-    "langgraph": "LangGraph",
-    "crewai": "CrewAI",
-    "gradio": "Gradio",
+    "javascript": "JavaScript", "typescript": "TypeScript",
+    "html": "HTML", "css": "CSS", "fastapi": "FastAPI",
+    "node.js": "Node.js", "mysql": "MySQL",
+    "mongodb": "MongoDB", "github": "GitHub",
+    "python": "Python", "c++": "C++", "c#": "C#",
+    "sql": "SQL", "api": "API", "rest api": "REST API",
+    "ms office": "MS Office", "ms word": "MS Word",
+    "ms excel": "MS Excel", "google gemini api": "Google Gemini API",
+    "google gemini": "Google Gemini", "gemini api": "Gemini API",
+    "generative ai": "Generative AI", "agentic ai": "Agentic AI",
+    "ai agents": "AI Agents", "rag": "RAG", "faiss": "FAISS",
+    "pypdf": "PyPDF", "n8n": "n8n", "make.com": "Make.com",
+    "langchain": "LangChain", "langgraph": "LangGraph",
+    "crewai": "CrewAI", "gradio": "Gradio",
     "sentence transformers": "Sentence Transformers",
     "machine learning": "Machine Learning",
     "deep learning": "Deep Learning",
@@ -167,7 +143,13 @@ def extract_pdf(file):
 
 def extract_docx(file):
     document = Document(io.BytesIO(file.read()))
-    return "\n".join(p.text for p in document.paragraphs)
+    paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
+
+    for table in document.tables:
+        for row in table.rows:
+            paragraphs.append(" | ".join(cell.text for cell in row.cells))
+
+    return "\n".join(paragraphs)
 
 
 def extract_txt(file):
@@ -185,19 +167,15 @@ def clean_extracted_line(line):
     line = re.sub(r"\(cid:\d+\)", " ", line, flags=re.I)
     line = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", line)
     line = re.sub(r"\s+", " ", line)
-    line = line.strip(" \t|•·-–—:;,")
-    return line.strip()
+    return line.strip(" \t|•·-–—:;,")
 
 
 def get_clean_lines(text):
-    lines = []
-
-    for line in text.splitlines():
-        cleaned = clean_extracted_line(line)
-        if cleaned:
-            lines.append(cleaned)
-
-    return lines
+    return [
+        clean_extracted_line(line)
+        for line in text.splitlines()
+        if clean_extracted_line(line)
+    ]
 
 
 # =====================================================
@@ -219,71 +197,110 @@ def extract_phone(text):
     return match.group(0).strip() if match else ""
 
 
-# =====================================================
-# CANDIDATE NAME DETECTION
-# =====================================================
 def extract_name(text):
-
-    ignored_phrases = [
-        "resume", "curriculum vitae",
-        "personal information", "contact information",
-        "professional summary", "career objective",
-        "profile", "projects", "education",
-        "experience", "technical skills", "skills",
-        "phone", "email", "address", "linkedin", "github"
+    ignored = [
+        "resume", "curriculum vitae", "personal information",
+        "contact information", "professional summary",
+        "career objective", "profile", "projects", "education",
+        "experience", "technical skills", "skills", "phone",
+        "email", "address", "linkedin", "github"
     ]
 
     for line in get_clean_lines(text):
-
-        value = line.strip()
+        value = re.sub(
+            r"\s+(projects?|resume|curriculum vitae)$",
+            "", line, flags=re.I
+        ).strip()
 
         if not value or len(value) > 65:
             continue
-
-        value = re.sub(
-            r"\s+(projects?|resume|curriculum vitae)$",
-            "",
-            value,
-            flags=re.I
-        ).strip()
-
-        if not value:
-            continue
-
         if re.search(r"@|https?://|www\.|\d{4,}|[|]", value, re.I):
             continue
-
-        if any(phrase in value.lower() for phrase in ignored_phrases):
+        if any(x in value.lower() for x in ignored):
             continue
 
         words = value.split()
-
-        if not 2 <= len(words) <= 4:
-            continue
-
-        if not all(
+        if 2 <= len(words) <= 4 and all(
             re.fullmatch(r"[A-Za-z][A-Za-z.'-]*", word)
             for word in words
         ):
-            continue
-
-        if len(value) >= 4:
             return value.title()
 
     return ""
 
 
 # =====================================================
+# SECTION DETECTION
+# =====================================================
+SECTION_ALIASES = {
+    "projects": [
+        "projects", "project", "personal projects",
+        "academic projects", "key projects", "my projects"
+    ],
+    "experience": [
+        "experience", "work experience", "professional experience",
+        "employment history", "work history", "career history"
+    ],
+    "education": [
+        "education", "academic background", "qualification",
+        "qualifications", "educational background"
+    ],
+    "skills": [
+        "skills", "technical skills", "core skills",
+        "key skills", "technical expertise", "competencies"
+    ],
+    "summary": [
+        "summary", "professional summary", "profile",
+        "career objective", "objective", "about me"
+    ],
+    "languages": ["languages", "language"],
+    "certifications": ["certifications", "certificates"],
+    "achievements": ["achievements", "awards", "honors"]
+}
+
+
+def normalize_heading(line):
+    value = line.lower().strip()
+    value = re.sub(r"^[\d.)\s]+", "", value)
+    value = re.sub(r"[:：|]+$", "", value)
+    return value.strip()
+
+
+def detect_section_heading(line):
+    normalized = normalize_heading(line)
+
+    for section, aliases in SECTION_ALIASES.items():
+        if normalized in aliases:
+            return section
+
+    return None
+
+
+def split_resume_sections(text):
+    sections = {key: [] for key in SECTION_ALIASES}
+    current_section = None
+
+    for line in get_clean_lines(text):
+        heading = detect_section_heading(line)
+
+        if heading:
+            current_section = heading
+            continue
+
+        if current_section:
+            sections[current_section].append(line)
+
+    return sections
+
+
+# =====================================================
 # SKILL DETECTION
 # =====================================================
 def extract_skills(text):
-
     lower_text = text.lower()
     found = []
 
-    # Longer phrases are checked first to avoid duplicate labels.
     for skill in sorted(SKILLS, key=len, reverse=True):
-
         pattern = (
             r"(?<![a-z0-9])"
             + re.escape(skill)
@@ -291,14 +308,9 @@ def extract_skills(text):
         )
 
         if re.search(pattern, lower_text):
-
-            display_name = SKILL_DISPLAY.get(
-                skill,
-                skill.title()
-            )
-
-            if display_name not in found:
-                found.append(display_name)
+            display = SKILL_DISPLAY.get(skill, skill.title())
+            if display not in found:
+                found.append(display)
 
     return found
 
@@ -307,41 +319,32 @@ def extract_skills(text):
 # EDUCATION EXTRACTION
 # =====================================================
 def extract_education(text):
+    sections = split_resume_sections(text)
+    education_lines = sections["education"]
 
-    education_keywords = [
-        "phd", "ph.d", "master", "bachelor",
-        "bs computer science", "bs cs", "bscs",
-        "bba", "mba", "b.com", "m.com",
-        "associate degree", "intermediate",
-        "matric", "secondary school",
-        "higher secondary", "diploma",
-        "degree", "computer science",
-        "software engineering",
-        "information technology",
-        "university", "college"
+    keywords = [
+        "phd", "ph.d", "master", "bachelor", "bs computer science",
+        "bs cs", "bscs", "bba", "mba", "b.com", "m.com",
+        "associate degree", "intermediate", "matric",
+        "secondary school", "higher secondary", "diploma",
+        "degree", "computer science", "software engineering",
+        "information technology", "university", "college"
     ]
 
     results = []
 
-    for line in get_clean_lines(text):
-
-        lower_line = line.lower()
-
-        if re.match(
-            r"^(english|urdu|language|languages|skills?|experience)\s*[-:|]",
-            lower_line
-        ):
-            continue
-
-        if re.fullmatch(
-            r"(english|urdu|arabic|punjabi)\s*.*",
-            lower_line
-        ):
-            continue
-
-        if any(keyword in lower_line for keyword in education_keywords):
-            if len(line) >= 4 and line not in results:
+    for line in education_lines:
+        if any(word in line.lower() for word in keywords):
+            if line not in results:
                 results.append(line)
+
+    # Fallback if no Education heading was detected.
+    if not results:
+        for line in get_clean_lines(text):
+            lower = line.lower()
+            if any(word in lower for word in keywords):
+                if line not in results:
+                    results.append(line)
 
     return results[:10]
 
@@ -350,204 +353,159 @@ def extract_education(text):
 # PROJECT EXTRACTION
 # =====================================================
 def extract_projects(text):
+    sections = split_resume_sections(text)
+    project_lines = sections["projects"]
 
-    lines = get_clean_lines(text)
     projects = []
-
-    project_heading_found = False
     current_project = []
 
-    stop_headings = [
-        "profile",
-        "professional summary",
-        "career objective",
-        "experience",
-        "work experience",
-        "education",
-        "technical skills",
-        "skills",
-        "languages",
-        "certifications",
-        "references",
-        "achievements",
-        "awards"
+    stop_words = [
+        "experience", "work experience", "education",
+        "skills", "technical skills", "languages",
+        "certifications", "achievements", "references"
     ]
 
-    def save_current_project():
-
+    def save_project():
         nonlocal current_project
 
-        if current_project:
+        cleaned = []
+        for item in current_project:
+            item = clean_extracted_line(item)
+            if item and item not in cleaned:
+                cleaned.append(item)
 
-            cleaned = []
-
-            for item in current_project:
-                item = clean_extracted_line(item)
-
-                if item and item not in cleaned:
-                    cleaned.append(item)
-
-            if cleaned:
-                projects.append("\n".join(cleaned))
+        if cleaned:
+            projects.append("\n".join(cleaned))
 
         current_project = []
 
-    for line in lines:
+    for line in project_lines:
+        lower = line.lower().strip()
 
-        lower_line = line.lower().strip()
-
-        # Detect the Projects section.
-        if re.fullmatch(r"(my\s+)?projects?", lower_line):
-            project_heading_found = True
+        # Ignore contact information accidentally placed in this section.
+        if re.search(r"@|https?://|www\.", line, re.I):
+            continue
+        if re.search(r"\+?\d[\d\s()-]{8,}", line):
             continue
 
-        # Also handle headings mixed with a candidate name.
-        if re.search(r"\bprojects?\b", lower_line) and len(line) <= 35:
-            project_heading_found = True
+        if lower in stop_words:
+            save_project()
+            break
+
+        numbered = re.match(
+            r"^\s*(?:project\s*)?(\d{1,2})[.)\-:]\s*(.{3,100})$",
+            line, re.I
+        )
+
+        if numbered:
+            save_project()
+            title = numbered.group(2).strip()
+            if title:
+                current_project = [title]
             continue
 
-        if project_heading_found:
-
-            if lower_line.rstrip(":") in stop_headings:
-                save_current_project()
-                break
-
-            # Numbered project title: 1 AURA, 2 AI Assistant, etc.
-            numbered_title = re.match(
-                r"^\s*(\d{1,2})[.)]?\s+(.{3,100})$",
-                line
+        # A short title-like line may start a new project.
+        if (
+            len(line) <= 75
+            and not line.endswith((".", ",", ";"))
+            and re.search(
+                r"\b(app|system|website|platform|assistant|generator|"
+                r"dashboard|automation|management|chatbot|application)\b",
+                lower
             )
+        ):
+            save_project()
+            current_project = [line]
+            continue
 
-            if numbered_title:
+        if current_project:
+            current_project.append(line)
+        else:
+            current_project = [line]
 
-                save_current_project()
+    save_project()
 
-                title = numbered_title.group(2).strip()
+    # Remove duplicates and overly short entries.
+    unique = []
+    for project in projects:
+        if len(project.strip()) >= 5 and project not in unique:
+            unique.append(project)
 
-                # Ignore a numbered line that is only a year or duration.
-                if not re.fullmatch(r"\d{4}", title):
-                    current_project = [title]
-
-                continue
-
-            if current_project:
-
-                # Avoid collecting unrelated headings.
-                if len(line) <= 35 and lower_line in stop_headings:
-                    save_current_project()
-                    break
-
-                current_project.append(line)
-
-    save_current_project()
-
-    # Fallback for documents with project titles but no numbered list.
-    if not projects:
-
-        for line in lines:
-
-            lower_line = line.lower()
-
-            if any(word in lower_line for word in [
-                "project", "assistant", "generator",
-                "automation system", "roadmap"
-            ]):
-
-                if len(line) >= 8 and line not in projects:
-                    projects.append(line)
-
-    return projects[:12]
+    return unique[:12]
 
 
 # =====================================================
 # EXPERIENCE EXTRACTION
 # =====================================================
 def extract_experience(text):
+    sections = split_resume_sections(text)
+    experience_lines = sections["experience"]
 
-    lines = get_clean_lines(text)
+    if not experience_lines:
+        return []
+
     results = []
+    current_entry = []
 
     role_keywords = [
-        "teacher", "assistant", "developer",
-        "engineer", "manager", "designer",
-        "coordinator", "analyst", "accountant",
-        "intern", "consultant", "officer",
-        "administrator", "supervisor",
-        "technician", "operator", "lecturer",
-        "instructor", "sales", "marketing",
-        "data entry", "customer service"
+        "teacher", "developer", "engineer", "manager",
+        "designer", "coordinator", "analyst", "accountant",
+        "intern", "consultant", "officer", "administrator",
+        "supervisor", "technician", "operator", "lecturer",
+        "instructor", "sales", "marketing", "data entry",
+        "customer service", "assistant", "specialist"
     ]
 
-    duration_pattern = re.compile(
-        r"\b(\d+\s*(?:year|years|month|months|week|weeks))\b",
+    date_pattern = re.compile(
+        r"\b(19|20)\d{2}\b|present|current|"
+        r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b",
         re.I
     )
 
     action_keywords = [
-        "managed", "supported", "handled",
-        "responsible", "maintained",
-        "prepared", "assisted", "organized",
-        "provided", "conducted", "created",
-        "trained", "taught", "documented",
-        "performed", "coordinated"
+        "managed", "supported", "handled", "responsible",
+        "maintained", "prepared", "assisted", "organized",
+        "provided", "conducted", "created", "trained",
+        "taught", "documented", "performed", "coordinated",
+        "developed", "implemented", "designed", "worked"
     ]
 
-    # Find lines that look like actual job titles.
-    role_indexes = []
+    def save_entry():
+        nonlocal current_entry
+        cleaned = [clean_extracted_line(x) for x in current_entry]
+        cleaned = [x for x in cleaned if x]
 
-    for index, line in enumerate(lines):
+        if cleaned:
+            item = "\n".join(dict.fromkeys(cleaned))
+            if item not in results:
+                results.append(item)
 
-        lower_line = line.lower()
+        current_entry = []
 
-        if any(keyword in lower_line for keyword in role_keywords):
+    for line in experience_lines:
+        lower = line.lower()
 
-            # Exclude project descriptions and skill lists.
-            if any(word in lower_line for word in [
-                "project", "projects", "ai agents",
-                "technical skills", "tools:"
-            ]):
-                continue
+        if re.search(r"@|https?://|www\.", line, re.I):
+            continue
 
-            role_indexes.append(index)
+        looks_like_role = any(word in lower for word in role_keywords)
+        has_date = bool(date_pattern.search(line))
 
-    for index in role_indexes:
+        if looks_like_role and len(line) < 120:
+            save_entry()
+            current_entry = [line]
+        elif current_entry:
+            if has_date or any(word in lower for word in action_keywords):
+                current_entry.append(line)
+            elif len(line) > 3:
+                current_entry.append(line)
 
-        role_line = lines[index]
-        entry = [role_line]
+    save_entry()
 
-        # Collect nearby duration and responsibility lines.
-        for next_index in range(index + 1, min(index + 5, len(lines))):
-
-            next_line = lines[next_index]
-            lower_next = next_line.lower()
-
-            # Do not pull in another job title.
-            if any(
-                keyword in lower_next
-                for keyword in role_keywords
-            ):
-                break
-
-            if duration_pattern.search(next_line):
-                entry.append(next_line)
-                continue
-
-            if any(
-                keyword in lower_next
-                for keyword in action_keywords
-            ):
-                entry.append(next_line)
-                continue
-
-            # Bullet-like descriptions can contain a verb without
-            # a strong action keyword.
-            if next_line.startswith(("•", "-", "▪")):
-                entry.append(next_line)
-
-        formatted = "\n".join(dict.fromkeys(entry))
-
-        if formatted not in results:
-            results.append(formatted)
+    # If a section exists but no clear role was detected,
+    # retain its text as one entry instead of losing information.
+    if not results and experience_lines:
+        results = ["\n".join(experience_lines[:12])]
 
     return results[:10]
 
@@ -583,32 +541,54 @@ LABELS = {
 }
 
 SECTION_KEYS = [
-    "summary",
-    "skills",
-    "education",
-    "experience",
-    "projects",
-    "languages"
+    "summary", "skills", "education",
+    "experience", "projects", "languages"
 ]
 
 
 # =====================================================
 # WORD EXPORT HELPERS
 # =====================================================
+def set_run_font(run, font_name="Arial", size=10, bold=None):
+    run.font.name = font_name
+    run.font.size = Pt(size)
+
+    if bold is not None:
+        run.bold = bold
+
+    r_pr = run._element.get_or_add_rPr()
+    r_fonts = r_pr.rFonts
+
+    if r_fonts is None:
+        r_fonts = OxmlElement("w:rFonts")
+        r_pr.insert(0, r_fonts)
+
+    r_fonts.set(qn("w:ascii"), font_name)
+    r_fonts.set(qn("w:hAnsi"), font_name)
+    r_fonts.set(qn("w:eastAsia"), font_name)
+    r_fonts.set(qn("w:cs"), font_name)
+
+
 def set_paragraph_rtl(paragraph):
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_pr = paragraph._p.get_or_add_pPr()
+
     bidi = OxmlElement("w:bidi")
+    bidi.set(qn("w:val"), "1")
     p_pr.append(bidi)
 
 
 def add_docx_section(doc, heading, value, rtl=False):
-
     if not str(value or "").strip():
         return
 
-    h = doc.add_heading(heading, level=1)
-    p = doc.add_paragraph(str(value))
+    h = doc.add_heading("", level=1)
+    h_run = h.add_run(heading)
+    set_run_font(h_run, "Noto Nastaliq Urdu" if rtl else "Arial", 13, True)
+
+    p = doc.add_paragraph()
+    p_run = p.add_run(str(value))
+    set_run_font(p_run, "Noto Nastaliq Urdu" if rtl else "Arial", 11)
 
     if rtl:
         set_paragraph_rtl(h)
@@ -616,7 +596,6 @@ def add_docx_section(doc, heading, value, rtl=False):
 
 
 def build_docx(profile, language, urdu_profile=None):
-
     urdu_profile = urdu_profile or {}
     doc = Document()
 
@@ -630,59 +609,47 @@ def build_docx(profile, language, urdu_profile=None):
     normal.font.name = "Arial"
     normal.font.size = Pt(10)
 
-    doc.add_heading(profile["name"] or "Candidate CV", 0)
+    title = doc.add_heading("", 0)
+    title_run = title.add_run(profile["name"] or "Candidate CV")
+    set_run_font(title_run, "Arial", 22, True)
 
     if profile["job"]:
-        doc.add_paragraph(profile["job"])
+        p = doc.add_paragraph()
+        run = p.add_run(profile["job"])
+        set_run_font(run, "Arial", 11)
 
     contact = " | ".join(
         x for x in [profile["email"], profile["phone"]] if x
     )
 
     if contact:
-        doc.add_paragraph(contact)
+        p = doc.add_paragraph()
+        run = p.add_run(contact)
+        set_run_font(run, "Arial", 9)
 
-    if language == "Urdu":
+    if language in ["English", "Bilingual"]:
+        for key in SECTION_KEYS:
+            add_docx_section(
+                doc,
+                LABELS["English"][key],
+                profile.get(key, "")
+            )
 
+    if language in ["Urdu", "Bilingual"]:
         for key in SECTION_KEYS:
             add_docx_section(
                 doc,
                 LABELS["Urdu"][key],
                 urdu_profile.get(key, ""),
                 rtl=True
-            )
-
-    elif language == "Bilingual":
-
-        for key in SECTION_KEYS:
-
-            add_docx_section(
-                doc,
-                LABELS["English"][key],
-                profile.get(key, "")
-            )
-
-            add_docx_section(
-                doc,
-                LABELS["Urdu"][key],
-                urdu_profile.get(key, ""),
-                rtl=True
-            )
-
-    else:
-
-        for key in SECTION_KEYS:
-            add_docx_section(
-                doc,
-                LABELS["English"][key],
-                profile.get(key, "")
             )
 
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer.add_run(
+    footer_run = footer.add_run(
         "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
     )
+    set_run_font(footer_run, "Arial", 8)
 
     output = io.BytesIO()
     doc.save(output)
@@ -693,64 +660,60 @@ def build_docx(profile, language, urdu_profile=None):
 # EXCEL EXPORT
 # =====================================================
 def build_xlsx(profile, language, urdu_profile=None):
-
-    from openpyxl.styles import (
-        Font, PatternFill, Alignment, Border, Side
-    )
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
     urdu_profile = urdu_profile or {}
     rows = []
 
-    rows.extend([
-        [LABELS["English"]["name"], profile["name"]],
-        [LABELS["English"]["job"], profile["job"]],
-        [LABELS["English"]["email"], profile["email"]],
-        [LABELS["English"]["phone"], profile["phone"]]
-    ])
+    if language == "Urdu":
+        rows.extend([
+            [LABELS["Urdu"]["name"], profile["name"]],
+            [LABELS["Urdu"]["job"], profile["job"]],
+            [LABELS["Urdu"]["email"], profile["email"]],
+            [LABELS["Urdu"]["phone"], profile["phone"]]
+        ])
+    else:
+        rows.extend([
+            [LABELS["English"]["name"], profile["name"]],
+            [LABELS["English"]["job"], profile["job"]],
+            [LABELS["English"]["email"], profile["email"]],
+            [LABELS["English"]["phone"], profile["phone"]]
+        ])
 
     for key in SECTION_KEYS:
-
         if language == "Urdu":
-
             rows.append([
                 LABELS["Urdu"][key],
                 urdu_profile.get(key, "")
             ])
-
         elif language == "Bilingual":
-
             rows.append([
                 LABELS["English"][key] + " / " + LABELS["Urdu"][key],
-                profile.get(key, "") + "\n\n" + urdu_profile.get(key, "")
+                "English:\n" + profile.get(key, "") +
+                "\n\nاردو:\n" + urdu_profile.get(key, "")
             ])
-
         else:
-
             rows.append([
                 LABELS["English"][key],
                 profile.get(key, "")
             ])
 
-    df = pd.DataFrame(
-        rows,
-        columns=["Field", "Candidate Information"]
-    )
+    if language == "Urdu":
+        headers = ["فیلڈ", "امیدوار کی معلومات"]
+    elif language == "Bilingual":
+        headers = ["Field / فیلڈ", "Candidate Information / امیدوار کی معلومات"]
+    else:
+        headers = ["Field", "Candidate Information"]
 
+    df = pd.DataFrame(rows, columns=headers)
     output = io.BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-
-        df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Candidate Profile"
-        )
-
+        df.to_excel(writer, index=False, sheet_name="Candidate Profile")
         ws = writer.sheets["Candidate Profile"]
 
-        ws.column_dimensions["A"].width = 34
-        ws.column_dimensions["B"].width = 68
-
+        ws.column_dimensions["A"].width = 38
+        ws.column_dimensions["B"].width = 75
         ws.sheet_view.rightToLeft = language in ["Urdu", "Bilingual"]
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
@@ -759,44 +722,33 @@ def build_xlsx(profile, language, urdu_profile=None):
         thin_gray = Side(style="thin", color="E5EAF1")
 
         for cell in ws[1]:
-
-            cell.font = Font(
-                bold=True,
-                color="FFFFFF",
-                size=11
-            )
-
+            cell.font = Font(bold=True, color="FFFFFF", size=11)
             cell.fill = header_fill
-
             cell.alignment = Alignment(
                 horizontal="right" if language == "Urdu" else "left",
-                vertical="center"
+                vertical="center",
+                wrap_text=True
             )
 
         for row in ws.iter_rows(min_row=2):
-
             for cell in row:
-
                 cell.alignment = Alignment(
                     horizontal="right" if language in ["Urdu", "Bilingual"] else "left",
                     vertical="top",
                     wrap_text=True
                 )
-
                 cell.border = Border(bottom=thin_gray)
 
-        ws.row_dimensions[1].height = 25
+        ws.row_dimensions[1].height = 30
 
     return output.getvalue()
 
 
 # =====================================================
 # PDF EXPORT
-# Urdu font required:
-# assets/NotoNastaliqUrdu-Regular.ttf
+# Urdu font: assets/NotoNastaliqUrdu-Regular.ttf
 # =====================================================
 def build_pdf(profile, language, urdu_profile=None):
-
     urdu_profile = urdu_profile or {}
     output = io.BytesIO()
 
@@ -813,22 +765,19 @@ def build_pdf(profile, language, urdu_profile=None):
     font_name = "Helvetica"
 
     if has_urdu:
-
         if not URDU_SHAPING_AVAILABLE:
             raise ValueError(
-                "Urdu PDF ke liye arabic-reshaper aur python-bidi "
-                "requirements.txt mein add karein."
+                "Urdu PDF dependencies missing. requirements.txt mein "
+                "arabic-reshaper aur python-bidi check karein."
             )
 
         font_path = os.path.join(
-            "assets",
-            "NotoNastaliqUrdu-Regular.ttf"
+            "assets", "NotoNastaliqUrdu-Regular.ttf"
         )
 
         if not os.path.exists(font_path):
             raise ValueError(
-                "Urdu PDF font missing hai. GitHub ke assets folder mein "
-                "NotoNastaliqUrdu-Regular.ttf upload karein."
+                "Noto Nastaliq Urdu font assets folder mein nahi mila."
             )
 
         if "UrduFont" not in pdfmetrics.getRegisteredFontNames():
@@ -865,12 +814,12 @@ def build_pdf(profile, language, urdu_profile=None):
         "UrduHeading",
         parent=styles["Heading2"],
         fontName=font_name,
-        fontSize=12,
-        leading=24,
+        fontSize=13,
+        leading=28,
         textColor=colors.HexColor("#176B70"),
         alignment=TA_RIGHT,
         spaceBefore=12,
-        spaceAfter=7
+        spaceAfter=8
     )
 
     english_body = ParagraphStyle(
@@ -886,116 +835,80 @@ def build_pdf(profile, language, urdu_profile=None):
         "UrduBody",
         parent=styles["BodyText"],
         fontName=font_name,
-        fontSize=10,
-        leading=24,
+        fontSize=11,
+        leading=27,
         alignment=TA_RIGHT
     )
 
     def safe_text(value):
-        return html.escape(
-            str(value or "")
-        ).replace("\n", "<br/>")
+        return html.escape(str(value or "")).replace("\n", "<br/>")
 
     def shape_urdu(value):
-
         if not value:
             return ""
 
-        if not URDU_SHAPING_AVAILABLE:
-            return safe_text(value)
-
         shaped_lines = []
-
         for line in str(value).splitlines():
-
-            escaped = html.escape(line)
-
-            if escaped.strip():
-                shaped_lines.append(
-                    get_display(
-                        arabic_reshaper.reshape(escaped)
-                    )
-                )
+            if line.strip():
+                escaped = html.escape(line)
+                shaped = arabic_reshaper.reshape(escaped)
+                shaped_lines.append(get_display(shaped))
             else:
                 shaped_lines.append("&nbsp;")
 
         return "<br/>".join(shaped_lines)
 
-    story = []
-
-    story.append(
+    story = [
         Paragraph(
             safe_text(profile["name"] or "Candidate CV"),
             title_style
         )
-    )
+    ]
 
     if profile["job"]:
-        story.append(
-            Paragraph(
-                safe_text(profile["job"]),
-                english_body
-            )
-        )
+        story.append(Paragraph(safe_text(profile["job"]), english_body))
 
     contact = " | ".join(
         x for x in [profile["email"], profile["phone"]] if x
     )
-
     if contact:
         story.append(Paragraph(safe_text(contact), english_body))
 
     for key in SECTION_KEYS:
-
         english_value = profile.get(key, "")
         urdu_value = urdu_profile.get(key, "")
 
         if language in ["English", "Bilingual"] and english_value.strip():
-
-            story.append(
-                Paragraph(
-                    safe_text(LABELS["English"][key]),
-                    english_heading
-                )
-            )
-
-            story.append(
-                Paragraph(
-                    safe_text(english_value),
-                    english_body
-                )
-            )
+            story.append(Paragraph(
+                safe_text(LABELS["English"][key]),
+                english_heading
+            ))
+            story.append(Paragraph(
+                safe_text(english_value),
+                english_body
+            ))
 
         if language in ["Urdu", "Bilingual"] and urdu_value.strip():
-
-            story.append(
-                Paragraph(
-                    shape_urdu(LABELS["Urdu"][key]),
-                    urdu_heading
-                )
-            )
-
-            story.append(
-                Paragraph(
-                    shape_urdu(urdu_value),
-                    urdu_body
-                )
-            )
+            story.append(Paragraph(
+                shape_urdu(LABELS["Urdu"][key]),
+                urdu_heading
+            ))
+            story.append(Paragraph(
+                shape_urdu(urdu_value),
+                urdu_body
+            ))
 
     def add_pdf_footer(canvas, document):
-
         canvas.saveState()
         canvas.setStrokeColor(colors.HexColor("#DCE5EC"))
         canvas.line(42, 38, A4[0] - 42, 38)
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#718096"))
-
         canvas.drawCentredString(
             A4[0] / 2,
             24,
             "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
         )
-
         canvas.restoreState()
 
     doc.build(
@@ -1008,17 +921,14 @@ def build_pdf(profile, language, urdu_profile=None):
 
 
 # =====================================================
-# SIDEBAR - ORIGINAL DESIGN
+# SIDEBAR
 # =====================================================
 with st.sidebar:
-
     st.markdown("""
     <div class="sidebar-brand">
         <div class="sidebar-logo">📄</div>
         <div class="sidebar-title">Resume Intelligence</div>
-        <div class="sidebar-subtitle">
-            Urdu Resume Skill Extractor
-        </div>
+        <div class="sidebar-subtitle">Urdu Resume Skill Extractor</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1028,17 +938,14 @@ with st.sidebar:
         '<div class="sidebar-section">PROJECT OVERVIEW</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">🏠 &nbsp; Resume Dashboard</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📊 &nbsp; Candidate Analysis</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📥 &nbsp; Profile Export</div>',
         unsafe_allow_html=True
@@ -1048,17 +955,14 @@ with st.sidebar:
         '<div class="sidebar-section">SUPPORTED FORMATS</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📕 &nbsp; PDF Documents</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📝 &nbsp; DOCX Documents</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">📃 &nbsp; TXT Documents</div>',
         unsafe_allow_html=True
@@ -1068,33 +972,28 @@ with st.sidebar:
         '<div class="sidebar-section">CURRENT CAPABILITIES</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Text extraction</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Email and phone detection</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Skills and project detection</div>',
         unsafe_allow_html=True
     )
-
     st.markdown(
         '<div class="sidebar-item">✓ &nbsp; Word, Excel and PDF export</div>',
         unsafe_allow_html=True
     )
 
     st.divider()
-
     st.caption("ACADEMIC PROJECT")
     st.markdown("**FYP 2026–2027**")
     st.caption("Developed with Python and Streamlit")
-    st.caption("Prototype Version 1.2")
+    st.caption("Prototype Version 1.3")
 
     st.markdown(
         '<div class="sidebar-credit">Built by Hina Arshad</div>',
@@ -1128,9 +1027,7 @@ with c1:
     <div class="info-card">
         <div class="card-label">STEP 01</div>
         <div class="card-value">📤 Upload</div>
-        <div style="color:#718096;font-size:12px;">
-            Select a resume document
-        </div>
+        <div style="color:#718096;font-size:12px;">Select a resume document</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1139,9 +1036,7 @@ with c2:
     <div class="info-card">
         <div class="card-label">STEP 02</div>
         <div class="card-value">🔍 Analyze</div>
-        <div style="color:#718096;font-size:12px;">
-            Detect candidate information
-        </div>
+        <div style="color:#718096;font-size:12px;">Detect candidate information</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1150,9 +1045,7 @@ with c3:
     <div class="info-card">
         <div class="card-label">STEP 03</div>
         <div class="card-value">📥 Export</div>
-        <div style="color:#718096;font-size:12px;">
-            Download structured profile
-        </div>
+        <div style="color:#718096;font-size:12px;">Download structured profile</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1183,31 +1076,25 @@ uploaded_file = st.file_uploader(
 # PROCESS RESUME
 # =====================================================
 if uploaded_file:
-
     try:
-
         file_name = uploaded_file.name.lower()
 
         if file_name.endswith(".pdf"):
             resume_text = extract_pdf(uploaded_file)
-
         elif file_name.endswith(".docx"):
             resume_text = extract_docx(uploaded_file)
-
         else:
             resume_text = extract_txt(uploaded_file)
 
         st.success("Resume uploaded successfully.")
 
         if not resume_text.strip():
-
             st.warning(
                 "No readable text was found. This may be a scanned PDF. "
                 "OCR support will be introduced in a future development phase."
             )
 
         else:
-
             email = extract_email(resume_text)
             phone = extract_phone(resume_text)
             skills = extract_skills(resume_text)
@@ -1226,29 +1113,19 @@ if uploaded_file:
 
             m1, m2, m3, m4 = st.columns(4)
 
-            with m1:
-                st.markdown(
-                    f'<div class="info-card"><div class="card-label">DETECTED SKILLS</div><div class="card-value">{len(skills)}</div></div>',
-                    unsafe_allow_html=True
-                )
+            metrics = [
+                ("DETECTED SKILLS", len(skills)),
+                ("EDUCATION ENTRIES", len(education)),
+                ("EXPERIENCE ENTRIES", len(experience)),
+                ("PROJECTS DETECTED", len(projects))
+            ]
 
-            with m2:
-                st.markdown(
-                    f'<div class="info-card"><div class="card-label">EDUCATION ENTRIES</div><div class="card-value">{len(education)}</div></div>',
-                    unsafe_allow_html=True
-                )
-
-            with m3:
-                st.markdown(
-                    f'<div class="info-card"><div class="card-label">EXPERIENCE ENTRIES</div><div class="card-value">{len(experience)}</div></div>',
-                    unsafe_allow_html=True
-                )
-
-            with m4:
-                st.markdown(
-                    f'<div class="info-card"><div class="card-label">PROJECTS DETECTED</div><div class="card-value">{len(projects)}</div></div>',
-                    unsafe_allow_html=True
-                )
+            for column, (label, value) in zip([m1, m2, m3, m4], metrics):
+                with column:
+                    st.markdown(
+                        f'<div class="info-card"><div class="card-label">{label}</div><div class="card-value">{value}</div></div>',
+                        unsafe_allow_html=True
+                    )
 
             # -----------------------------------------
             # 03 CONTACT INFORMATION
@@ -1261,22 +1138,18 @@ if uploaded_file:
             contact1, contact2 = st.columns(2)
 
             with contact1:
-
                 st.markdown(
                     '<div class="content-card"><h3>✉️ Email Address</h3>',
                     unsafe_allow_html=True
                 )
-
                 st.write(email or "Not detected")
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with contact2:
-
                 st.markdown(
                     '<div class="content-card"><h3>📞 Phone Number</h3>',
                     unsafe_allow_html=True
                 )
-
                 st.write(phone or "Not detected")
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1291,14 +1164,11 @@ if uploaded_file:
             st.markdown('<div class="content-card">', unsafe_allow_html=True)
 
             if skills:
-
                 skill_html = "".join(
                     f'<span class="skill-tag">{html.escape(skill)}</span>'
                     for skill in skills
                 )
-
                 st.markdown(skill_html, unsafe_allow_html=True)
-
             else:
                 st.info("No matching skills detected.")
 
@@ -1310,12 +1180,10 @@ if uploaded_file:
             left, right = st.columns(2)
 
             with left:
-
                 st.markdown(
                     '<div class="section-heading">05 &nbsp; Education</div>',
                     unsafe_allow_html=True
                 )
-
                 st.markdown(
                     '<div class="content-card"><h3>🎓 Academic Background</h3>',
                     unsafe_allow_html=True
@@ -1330,12 +1198,10 @@ if uploaded_file:
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with right:
-
                 st.markdown(
                     '<div class="section-heading">06 &nbsp; Experience</div>',
                     unsafe_allow_html=True
                 )
-
                 st.markdown(
                     '<div class="content-card"><h3>💼 Work Background</h3>',
                     unsafe_allow_html=True
@@ -1363,15 +1229,11 @@ if uploaded_file:
             )
 
             if projects:
-
                 for index, project in enumerate(projects, start=1):
-
                     st.markdown(f"**Project {index}**")
                     st.write(project)
-
                     if index < len(projects):
                         st.divider()
-
             else:
                 st.info(
                     "No separate project entries detected. "
@@ -1384,7 +1246,6 @@ if uploaded_file:
             # ORIGINAL EXTRACTED TEXT
             # -----------------------------------------
             with st.expander("📄 View Original Extracted Resume Text"):
-
                 st.text_area(
                     "Extracted document content",
                     resume_text,
@@ -1408,7 +1269,6 @@ if uploaded_file:
             col_a, col_b = st.columns(2)
 
             with col_a:
-
                 candidate_name = st.text_input(
                     "Candidate Full Name",
                     value=detected_name,
@@ -1434,7 +1294,6 @@ if uploaded_file:
                 )
 
             with col_b:
-
                 summary = st.text_area(
                     "Professional Summary",
                     value="",
@@ -1505,9 +1364,8 @@ if uploaded_file:
             )
 
             st.caption(
-                "Agar Urdu ya Bilingual CV banana hai to neeche Urdu "
-                "content manually enter karein. Name, email aur phone "
-                "aapke original profile se liye jayenge."
+                "Urdu ya Bilingual CV ke liye neeche Urdu content enter karein. "
+                "Name, email aur phone original profile se liye jayenge."
             )
 
             urdu_profile = {}
@@ -1516,7 +1374,6 @@ if uploaded_file:
                 "✍️ Enter Urdu CV Details",
                 expanded=(language != "English")
             ):
-
                 urdu_profile["summary"] = st.text_area(
                     "پیشہ ورانہ تعارف",
                     key="urdu_summary",
@@ -1567,17 +1424,12 @@ if uploaded_file:
                 unsafe_allow_html=True
             )
 
-            st.markdown(
-                '<div class="content-card">',
-                unsafe_allow_html=True
-            )
-
+            st.markdown('<div class="content-card">', unsafe_allow_html=True)
             st.write(
                 "Review your details and download your selected CV format."
             )
 
             if language in ["Urdu", "Bilingual"]:
-
                 missing_urdu = [
                     LABELS["Urdu"][key]
                     for key in SECTION_KEYS
@@ -1585,25 +1437,25 @@ if uploaded_file:
                 ]
 
                 if missing_urdu:
-
                     st.warning(
-                        "Urdu fields abhi incomplete hain. Behtar result "
-                        "ke liye Urdu content enter karein. Empty fields "
-                        "CV mein include nahi honge."
+                        "Urdu fields incomplete hain: " +
+                        ", ".join(missing_urdu) +
+                        ". Empty Urdu fields export mein include nahi honge."
+                    )
+                else:
+                    st.success("All Urdu CV sections have content.")
+
+                if not URDU_SHAPING_AVAILABLE:
+                    st.error(
+                        "Urdu PDF support ke liye requirements.txt mein "
+                        "arabic-reshaper aur python-bidi required hain."
                     )
 
             e1, e2, e3 = st.columns(3)
 
             with e1:
-
                 try:
-
-                    word_file = build_docx(
-                        profile,
-                        language,
-                        urdu_profile
-                    )
-
+                    word_file = build_docx(profile, language, urdu_profile)
                     st.download_button(
                         "⬇ Download Word CV",
                         word_file,
@@ -1611,20 +1463,12 @@ if uploaded_file:
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True
                     )
-
                 except Exception as err:
                     st.error(f"Word export error: {err}")
 
             with e2:
-
                 try:
-
-                    excel_file = build_xlsx(
-                        profile,
-                        language,
-                        urdu_profile
-                    )
-
+                    excel_file = build_xlsx(profile, language, urdu_profile)
                     st.download_button(
                         "⬇ Download Excel",
                         excel_file,
@@ -1632,20 +1476,12 @@ if uploaded_file:
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
-
                 except Exception as err:
                     st.error(f"Excel export error: {err}")
 
             with e3:
-
                 try:
-
-                    pdf_file = build_pdf(
-                        profile,
-                        language,
-                        urdu_profile
-                    )
-
+                    pdf_file = build_pdf(profile, language, urdu_profile)
                     st.download_button(
                         "⬇ Download PDF CV",
                         pdf_file,
@@ -1653,28 +1489,24 @@ if uploaded_file:
                         "application/pdf",
                         use_container_width=True
                     )
-
                 except Exception as err:
                     st.warning(f"PDF export issue: {err}")
 
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.info(
-                "Important: Urdu content is entered manually. This app "
-                "does not automatically translate English into Urdu. "
-                "Review all candidate information before using the CV. "
-                "The current parser uses rule-based detection and does "
-                "not yet support OCR for scanned resumes. PDF column "
-                "layouts may affect automatic section detection."
+                "Important: Urdu content is entered manually. This app does "
+                "not automatically translate English into Urdu. Review all "
+                "candidate information before using the CV. The parser uses "
+                "rule-based detection and does not yet support OCR for scanned "
+                "resumes. Complex PDF layouts may affect section detection."
             )
 
     except Exception as error:
-
         st.error("Unable to process this resume.")
         st.exception(error)
 
 else:
-
     st.info("Upload a resume above to start candidate analysis.")
 
 
