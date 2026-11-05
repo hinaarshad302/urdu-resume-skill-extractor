@@ -754,87 +754,232 @@ def build_xlsx(profile, language, urdu_profile=None):
 # =====================================================
 # PDF EXPORT - URDU SHAPING + RIGHT TO LEFT
 # =====================================================
+
 def build_pdf(profile, language, urdu_profile=None):
     urdu_profile = urdu_profile or {}
     output = io.BytesIO()
+
     doc = SimpleDocTemplate(
-        output, pagesize=A4, rightMargin=42, leftMargin=42,
-        topMargin=42, bottomMargin=55
+        output,
+        pagesize=A4,
+        rightMargin=42,
+        leftMargin=42,
+        topMargin=42,
+        bottomMargin=55
     )
+
     has_urdu = language in ("Urdu", "Bilingual")
-    font_name = "Helvetica"
+    font_path = os.path.join("assets", "NotoNastaliqUrdu-Regular.ttf")
+
     if has_urdu:
         if not URDU_SHAPING_AVAILABLE:
-            raise ValueError("Urdu PDF packages missing: arabic-reshaper, python-bidi.")
-        font_path = os.path.join("assets", "NotoNastaliqUrdu-Regular.ttf")
+            raise ValueError("Urdu packages missing.")
         if not os.path.exists(font_path):
-            raise ValueError("NotoNastaliqUrdu-Regular.ttf assets folder mein nahi mila.")
-        if "UrduFont" not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont("UrduFont", font_path))
-        font_name = "UrduFont"
+            raise ValueError("Urdu font file assets folder mein nahi mila.")
 
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "CVTitle", parent=styles["Title"], fontName="Helvetica-Bold",
-        fontSize=19, leading=32, textColor=colors.HexColor("#102A43"),
-        alignment=TA_RIGHT if language == "Urdu" else TA_LEFT, spaceAfter=10
-    )
-    english_heading = ParagraphStyle(
-        "EnglishHeading", parent=styles["Heading2"],
-        fontName="Helvetica-Bold", fontSize=12, leading=18,
-        textColor=colors.HexColor("#176B70"), alignment=TA_LEFT,
-        spaceBefore=12, spaceAfter=5
-    )
-    urdu_heading = ParagraphStyle(
-        "UrduHeading", parent=styles["Heading2"], fontName=font_name,
-        fontSize=12, leading=27, textColor=colors.HexColor("#176B70"),
-        alignment=TA_RIGHT, spaceBefore=12, spaceAfter=8
-    )
-    english_body = ParagraphStyle(
-        "EnglishBody", parent=styles["BodyText"], fontName="Helvetica",
-        fontSize=9.5, leading=15, alignment=TA_LEFT, spaceAfter=4
-    )
-    urdu_body = ParagraphStyle(
-        "UrduBody", parent=styles["BodyText"], fontName=font_name,
-        fontSize=10, leading=27, alignment=TA_RIGHT, spaceAfter=5
-    )
-
-    def safe_text(value):
-        return html.escape(str(value or "")).replace("\n", "<br/>")
-
-    def shape_urdu(value):
-        if not value:
-            return ""
-        if not URDU_SHAPING_AVAILABLE:
-            return safe_text(value)
-        shaped = []
-        for line in str(value).splitlines():
-            if line.strip():
-                # Shape Urdu letters, then apply an explicit RTL base direction.
-                shaped_line = arabic_reshaper.reshape(line)
-                visual_line = get_display(shaped_line, base_dir="R")
-                shaped.append(html.escape(visual_line))
-            else:
-                shaped.append("&nbsp;")
-        return "<br/>".join(shaped)
-
     story = []
-    story.append(Paragraph(safe_text(profile.get("name") or "Candidate CV"), title_style))
+
+    # Urdu text ko image mein convert karne wala Flowable
+    class UrduLine(Flowable):
+        def __init__(self, text, font_size=10, color="#222222",
+                     space_after=5, right_align=True):
+            Flowable.__init__(self)
+            self.text = text
+            self.font_size = font_size
+            self.color = color
+            self.space_after = space_after
+            self.right_align = right_align
+            self.height = 30 + space_after
+
+        def wrap(self, availWidth, availHeight):
+            self.width = availWidth
+            self.availWidth = availWidth
+            return availWidth, self.height
+
+        def draw(self):
+            scale = 3
+            font = ImageFont.truetype(
+                font_path, int(self.font_size * scale)
+            )
+
+            reshaped = arabic_reshaper.reshape(self.text)
+            visual = get_display(reshaped, base_dir="R")
+
+            image = PILImage.new(
+                "RGBA",
+                (int(self.width * scale), int(30 * scale)),
+                (255, 255, 255, 0)
+            )
+            draw = ImageDraw.Draw(image)
+
+            bbox = draw.textbbox((0, 0), visual, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            x = max(0, image.width - text_width - 8) if self.right_align else 0
+            y = max(0, (image.height - text_height) // 2 - bbox[1])
+
+            draw.text(
+                (x, y),
+                visual,
+                font=font,
+                fill=self.color
+            )
+
+            image_buffer = io.BytesIO()
+            image.save(image_buffer, format="PNG")
+            image_buffer.seek(0)
+
+            self.canv.drawImage(
+                ImageReader(image_buffer),
+                0, 0,
+                width=self.width,
+                height=30,
+                mask="auto"
+            )
+
+    def add_urdu_text(value, font_size=10, color="#222222",
+                      space_after=5):
+        if not value:
+            return
+
+        max_width = A4[0] - 84
+
+        for paragraph in str(value).splitlines():
+            paragraph = paragraph.strip()
+
+            if not paragraph:
+                continue
+
+            words = paragraph.split()
+            current_line = ""
+
+            font = ImageFont.truetype(
+                font_path, int(font_size * 3)
+            )
+            dummy = ImageDraw.Draw(
+                PILImage.new("RGB", (10, 10))
+            )
+
+            for word in words:
+                test_line = (current_line + " " + word).strip()
+                shaped = get_display(
+                    arabic_reshaper.reshape(test_line),
+                    base_dir="R"
+                )
+                bbox = dummy.textbbox((0, 0), shaped, font=font)
+                text_width = bbox[2] - bbox[0]
+
+                if text_width > max_width * 3 and current_line:
+                    story.append(
+                        UrduLine(
+                            current_line,
+                            font_size,
+                            color,
+                            2
+                        )
+                    )
+                    current_line = word
+                else:
+                    current_line = test_line
+
+            if current_line:
+                story.append(
+                    UrduLine(
+                        current_line,
+                        font_size,
+                        color,
+                        space_after
+                    )
+                )
+
+    title_style = ParagraphStyle(
+        "CVTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=19,
+        leading=28,
+        textColor=colors.HexColor("#102A43"),
+        alignment=TA_LEFT,
+        spaceAfter=10
+    )
+
+    english_heading = ParagraphStyle(
+        "EnglishHeading",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=18,
+        textColor=colors.HexColor("#176B70"),
+        spaceBefore=12,
+        spaceAfter=5
+    )
+
+    english_body = ParagraphStyle(
+        "EnglishBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9.5,
+        leading=15,
+        spaceAfter=4
+    )
+
+    story.append(
+        Paragraph(
+            html.escape(str(profile.get("name") or "Candidate CV")),
+            title_style
+        )
+    )
+
     if profile.get("job"):
-        story.append(Paragraph(safe_text(profile["job"]), english_body))
-    contact = " | ".join(x for x in [profile.get("email", ""), profile.get("phone", "")] if x)
+        story.append(
+            Paragraph(html.escape(str(profile["job"])), english_body)
+        )
+
+    contact = " | ".join(
+        x for x in [
+            profile.get("email", ""),
+            profile.get("phone", "")
+        ] if x
+    )
+
     if contact:
-        story.append(Paragraph(safe_text(contact), english_body))
+        story.append(
+            Paragraph(html.escape(contact), english_body)
+        )
 
     for key in SECTION_KEYS:
         en_value = profile.get(key, "")
         ur_value = urdu_profile.get(key, "")
+
         if language in ("English", "Bilingual") and en_value.strip():
-            story.append(Paragraph(safe_text(LABELS["English"][key]), english_heading))
-            story.append(Paragraph(safe_text(en_value), english_body))
+            story.append(
+                Paragraph(
+                    html.escape(LABELS["English"][key]),
+                    english_heading
+                )
+            )
+            story.append(
+                Paragraph(
+                    html.escape(str(en_value)).replace("\n", "<br/>"),
+                    english_body
+                )
+            )
+
         if language in ("Urdu", "Bilingual") and ur_value.strip():
-            story.append(Paragraph(shape_urdu(LABELS["Urdu"][key]), urdu_heading))
-            story.append(Paragraph(shape_urdu(ur_value), urdu_body))
+            add_urdu_text(
+                LABELS["Urdu"][key],
+                font_size=12,
+                color="#176B70",
+                space_after=5
+            )
+            add_urdu_text(
+                ur_value,
+                font_size=10,
+                color="#222222",
+                space_after=8
+            )
 
     def add_pdf_footer(canvas, document):
         canvas.saveState()
@@ -843,12 +988,18 @@ def build_pdf(profile, language, urdu_profile=None):
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#718096"))
         canvas.drawCentredString(
-            A4[0] / 2, 24,
+            A4[0] / 2,
+            24,
             "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
         )
         canvas.restoreState()
 
-    doc.build(story, onFirstPage=add_pdf_footer, onLaterPages=add_pdf_footer)
+    doc.build(
+        story,
+        onFirstPage=add_pdf_footer,
+        onLaterPages=add_pdf_footer
+    )
+
     return output.getvalue()
 
 # =====================================================
