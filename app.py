@@ -71,6 +71,15 @@ html, body, [class*="css"] {font-family:'Inter',sans-serif;}
 .content-card h3 {color:#17324D;font-size:16px;margin-top:0;}
 .skill-tag {display:inline-block;background:#E8F5F3;color:#176B70;border:1px solid #CDE9E4;padding:6px 11px;border-radius:20px;margin:4px 5px 4px 0;font-size:12px;font-weight:600;}
 .upload-note {background:#EAF2FA;border:1px solid #D6E5F3;padding:13px 16px;border-radius:10px;color:#285477;font-size:13px;margin-bottom:15px;}
+textarea[aria-label*="پیشہ ورانہ"],
+textarea[aria-label*="مہارتیں"],
+textarea[aria-label*="تعلیم"],
+textarea[aria-label*="تجربہ"],
+textarea[aria-label*="منصوبے"],
+textarea[aria-label*="زبانیں"] {
+    direction:rtl !important;
+    text-align:right !important;
+}
 .stButton > button,.stDownloadButton > button {background:#176B70;color:white;border:none;border-radius:9px;font-weight:650;padding:9px 18px;}
 .stButton > button:hover,.stDownloadButton > button:hover {background:#12565A;color:white;border:none;}
 [data-testid="stFileUploader"] {background:white;border:1px dashed #9AB8C8;border-radius:13px;padding:14px;}
@@ -299,6 +308,16 @@ def extract_skills(text):
 
             if display_name not in found:
                 found.append(display_name)
+
+    # Remove generic duplicate labels when a more specific skill is present.
+    specific_to_generic = {
+        "Excel": ["MS Excel"],
+        "Word": ["MS Word"],
+        "API": ["REST API", "Google Gemini API", "Gemini API"]
+    }
+    for generic, specific_items in specific_to_generic.items():
+        if generic in found and any(item in found for item in specific_items):
+            found.remove(generic)
 
     return found
 
