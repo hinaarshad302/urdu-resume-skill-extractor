@@ -8,7 +8,7 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 
-from PIL import Image as PILImage, ImageDraw, ImageFont
+from PIL import Image as PILImage, ImageDraw, ImageFont, features
 
 from docx import Document
 from docx.shared import Inches, Pt
