@@ -6,6 +6,7 @@ import os
 import html
 import hashlib
 import json
+import time
 import streamlit as st
 import pdfplumber
 import pandas as pd
@@ -106,10 +107,31 @@ ORIGINAL RESUME TEXT:
 {resume_text[:26000]}
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt
-    )
+    # Retry temporary Gemini server/load errors before showing an error.
+    response = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt
+            )
+            break
+        except Exception as api_error:
+            error_text = str(api_error).lower()
+            temporary_error = any(
+                marker in error_text
+                for marker in ("503", "429", "500", "502", "504",
+                               "unavailable", "resource_exhausted",
+                               "high demand", "overloaded")
+            )
+            if not temporary_error or attempt == 2:
+                if temporary_error:
+                    raise RuntimeError(
+                        "Gemini server par abhi load zyada hai. "
+                        "Kuch minutes baad dobara Generate button press karein."
+                    ) from api_error
+                raise
+            time.sleep(2 ** (attempt + 1))
 
     raw = (response.text or "").strip()
     raw = re.sub(r"^\s*```(?:json)?\s*", "", raw, flags=re.I)
