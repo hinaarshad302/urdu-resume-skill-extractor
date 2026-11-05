@@ -30,6 +30,36 @@ try:
     URDU_SHAPING_AVAILABLE = True
 except ImportError:
     URDU_SHAPING_AVAILABLE = False
+    # =====================================================
+# GEMINI AI CONFIGURATION
+# =====================================================
+
+from google import genai
+
+
+def get_gemini_client():
+
+    api_key = st.secrets.get(
+        "GEMINI_API_KEY",
+        os.getenv("GEMINI_API_KEY")
+    )
+
+    if not api_key:
+        raise ValueError("Gemini API Key is missing.")
+
+    return genai.Client(api_key=api_key)
+
+
+def test_gemini_connection():
+
+    client = get_gemini_client()
+
+    response = client.models.generate_content(
+        model="gemini-3.8-flash",
+        contents="Reply with exactly: Gemini connection successful."
+    )
+
+    return response.text
 
 
 
