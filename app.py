@@ -1890,177 +1890,134 @@ if uploaded_file:
                 )
 
             # -----------------------------------------
-            # 10 EXPORT PROFESSIONAL CV
+            # 10 EXPORT ENGLISH AND URDU CV SEPARATELY
             # -----------------------------------------
             st.markdown(
-                '<div class="section-heading">10 &nbsp; Export Professional CV</div>',
+                '<div class="section-heading">10 &nbsp; Export Separate CVs</div>',
                 unsafe_allow_html=True
             )
-
-            st.markdown(
-                '<div class="content-card">',
-                unsafe_allow_html=True
-            )
-
+            st.markdown('<div class="content-card">', unsafe_allow_html=True)
             st.write(
-                "Review your details and download your selected CV format."
+                "English aur Urdu CV alag-alag files mein download karein. "
+                "Dono CVs ek doosre ke text ke saath mix nahi hongi."
             )
-
-            if language in ["Urdu", "Bilingual"]:
-
-                missing_urdu = [
-                    LABELS["Urdu"][key]
-                    for key in SECTION_KEYS
-                    if not urdu_profile.get(key, "").strip()
-                ]
-
-                if missing_urdu:
-
-                    st.warning(
-                        "Urdu fields abhi incomplete hain. Behtar result "
-                        "ke liye Urdu content enter karein. Empty fields "
-                        "CV mein include nahi honge."
-                    )
 
             if not ai_profiles:
-                st.info("AI CV generate hone ke baad Word, PDF aur Excel exports mein AI-written sections use honge.")
-            elif language == "English":
-                st.caption("Export preview: Gemini-generated English profile.")
-            elif language == "Urdu":
-                st.caption("Export preview: Gemini-generated Urdu profile.")
+                st.info(
+                    "Pehle 'Generate English & Urdu CV with Gemini AI' button "
+                    "press karein. Uske baad dono separate CVs download kar sakti hain."
+                )
             else:
-                st.caption("Export preview: English and Urdu AI-generated sections.")
+                english_export_profile = english_ai_profile.copy()
+                english_export_profile["name"] = profile.get("name", "")
+                english_export_profile["email"] = profile.get("email", "")
+                english_export_profile["phone"] = profile.get("phone", "")
+                if not english_export_profile.get("job"):
+                    english_export_profile["job"] = profile.get("job", "")
 
-            # Final CV preview before download
-            st.markdown("### 📄 Final CV Preview")
-            st.markdown('<div class="content-card">', unsafe_allow_html=True)
-            st.markdown(f"## {html.escape(profile.get('name') or 'Candidate Name')}")
-            if profile.get("job"):
-                st.markdown(f"**{html.escape(profile['job'])}**")
-            contact_line = "  |  ".join(
-                html.escape(value) for value in
-                [profile.get("email", ""), profile.get("phone", "")]
-                if value
-            )
-            if contact_line:
-                st.caption(contact_line)
+                st.markdown("### 🇬🇧 English CV")
+                st.caption("Is section ki files mein sirf English profile hogi.")
+                en1, en2, en3 = st.columns(3)
 
-            preview_fields = [
-                ("Professional Summary", "summary"),
-                ("Skills", "skills"),
-                ("Education", "education"),
-                ("Experience", "experience"),
-                ("Projects", "projects"),
-                ("Languages", "languages")
-            ]
-            if language in ["English", "Bilingual"]:
-                english_preview = english_ai_profile if ai_profiles else profile
-                for heading, key in preview_fields:
-                    value = english_preview.get(key, "")
-                    if value:
-                        st.markdown(f"**{heading}**")
-                        st.write(value)
-
-            if language in ["Urdu", "Bilingual"] and ai_profiles:
-                st.markdown("---")
-                st.markdown('<div dir="rtl" style="text-align:right;">', unsafe_allow_html=True)
-                for key in SECTION_KEYS:
-                    value = str(urdu_profile.get(key, "") or "").strip()
-                    if value:
-                        st.markdown(f"**{LABELS['Urdu'][key]}**")
-                        st.markdown(
-                            '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
-                            + html.escape(value)
-                            + '</div>',
-                            unsafe_allow_html=True
+                with en1:
+                    try:
+                        en_docx = build_docx(english_export_profile, "English", {})
+                        st.download_button(
+                            "⬇ English Word",
+                            en_docx,
+                            "Hina_Arshad_English_CV.docx",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            key="download_english_word"
                         )
-                st.markdown("</div>", unsafe_allow_html=True)
+                    except Exception as err:
+                        st.error(f"English Word export error: {err}")
 
-            st.markdown("</div>", unsafe_allow_html=True)
+                with en2:
+                    try:
+                        en_xlsx = build_xlsx(english_export_profile, "English", {})
+                        st.download_button(
+                            "⬇ English Excel",
+                            en_xlsx,
+                            "Hina_Arshad_English_CV.xlsx",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key="download_english_excel"
+                        )
+                    except Exception as err:
+                        st.error(f"English Excel export error: {err}")
 
-            e1, e2, e3 = st.columns(3)
+                with en3:
+                    try:
+                        en_pdf = build_pdf(english_export_profile, "English", {})
+                        st.download_button(
+                            "⬇ English PDF",
+                            en_pdf,
+                            "Hina_Arshad_English_CV.pdf",
+                            "application/pdf",
+                            use_container_width=True,
+                            key="download_english_pdf"
+                        )
+                    except Exception as err:
+                        st.error(f"English PDF export error: {err}")
 
-            with e1:
+                st.divider()
+                st.markdown("### اردو CV")
+                st.caption(
+                    "Is section ki files mein Urdu profile hogi. "
+                    "Technology names (FastAPI, Gemini, RAG) apne original English naam mein reh sakte hain."
+                )
 
-                try:
+                ur1, ur2, ur3 = st.columns(3)
 
-                    export_profile = (
-                        english_ai_profile.copy()
-                        if ai_profiles else profile.copy()
-                    )
-                    export_profile["name"] = profile.get("name", "")
-                    export_profile["email"] = profile.get("email", "")
-                    export_profile["phone"] = profile.get("phone", "")
-                    if not export_profile.get("job"):
-                        export_profile["job"] = profile.get("job", "")
+                with ur1:
+                    try:
+                        ur_docx = build_docx(profile, "Urdu", urdu_profile)
+                        st.download_button(
+                            "⬇ Urdu Word",
+                            ur_docx,
+                            "Hina_Arshad_Urdu_CV.docx",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            key="download_urdu_word"
+                        )
+                    except Exception as err:
+                        st.error(f"Urdu Word export error: {err}")
 
-                    word_file = build_docx(
-                        export_profile,
-                        language,
-                        urdu_profile
-                    )
+                with ur2:
+                    try:
+                        ur_xlsx = build_xlsx(profile, "Urdu", urdu_profile)
+                        st.download_button(
+                            "⬇ Urdu Excel",
+                            ur_xlsx,
+                            "Hina_Arshad_Urdu_CV.xlsx",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key="download_urdu_excel"
+                        )
+                    except Exception as err:
+                        st.error(f"Urdu Excel export error: {err}")
 
-                    st.download_button(
-                        "⬇ Download Word CV",
-                        word_file,
-                        "candidate_cv.docx",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        use_container_width=True
-                    )
-
-                except Exception as err:
-                    st.error(f"Word export error: {err}")
-
-            with e2:
-
-                try:
-
-                    excel_file = build_xlsx(
-                        export_profile,
-                        language,
-                        urdu_profile
-                    )
-
-                    st.download_button(
-                        "⬇ Download Excel",
-                        excel_file,
-                        "candidate_profile.xlsx",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-
-                except Exception as err:
-                    st.error(f"Excel export error: {err}")
-
-            with e3:
-
-                try:
-
-                    pdf_file = build_pdf(
-                        export_profile,
-                        language,
-                        urdu_profile
-                    )
-
-                    st.download_button(
-                        "⬇ Download PDF CV",
-                        pdf_file,
-                        "candidate_cv.pdf",
-                        "application/pdf",
-                        use_container_width=True
-                    )
-
-                except Exception as err:
-                    st.warning(f"PDF export issue: {err}")
+                with ur3:
+                    try:
+                        ur_pdf = build_pdf(profile, "Urdu", urdu_profile)
+                        st.download_button(
+                            "⬇ Urdu PDF",
+                            ur_pdf,
+                            "Hina_Arshad_Urdu_CV.pdf",
+                            "application/pdf",
+                            use_container_width=True,
+                            key="download_urdu_pdf"
+                        )
+                    except Exception as err:
+                        st.error(f"Urdu PDF export error: {err}")
 
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.info(
-                "Important: Gemini AI English aur Urdu CV prepare karta hai, "
-                "lekin final download se pehle tamam details verify karein. "
-                "AI missing education, experience, dates ya achievements "
-                "invent nahi karna chahiye. Scanned PDFs ke liye OCR abhi "
-                "available nahi; PDF column layouts extraction ko affect kar sakte hain."
+                "Important: Download se pehle tamam details verify karein. "
+                "AI missing education, experience, dates ya achievements invent nahi karna chahiye. "
+                "Scanned PDFs ke liye OCR abhi available nahi; PDF column layouts extraction ko affect kar sakte hain."
             )
 
     except Exception as error:
