@@ -243,7 +243,19 @@ textarea[aria-label*="زبانیں"] {
 .stButton > button,.stDownloadButton > button {background:#176B70;color:white;border:none;border-radius:9px;font-weight:650;padding:9px 18px;}
 .stButton > button:hover,.stDownloadButton > button:hover {background:#12565A;color:white;border:none;}
 [data-testid="stFileUploader"] {background:white;border:1px dashed #9AB8C8;border-radius:13px;padding:14px;}
-.footer {border-top:1px solid #E1E7EF;padding-top:20px;margin-top:40px;color:#7A8999;font-size:11px;text-align:center;line-height:1.8;}
+.footer {border-top:1px solid #E1E7EF;padding:18px 12px 8px;margin-top:32px;color:#7A8999;font-size:11px;text-align:center;line-height:1.65;overflow-wrap:anywhere;}
+@media (max-width: 640px) {
+    .block-container {padding:1rem 0.85rem 2rem;}
+    .hero {padding:21px 18px;border-radius:14px;margin-bottom:18px;}
+    .hero h1 {font-size:24px !important;line-height:1.25 !important;}
+    .hero p {font-size:13px;line-height:1.55;}
+    .eyebrow {font-size:9px;letter-spacing:1px;}
+    .content-card {padding:14px;}
+    .info-card {padding:14px;min-height:auto;}
+    .card-value {font-size:19px;}
+    .stButton > button,.stDownloadButton > button {width:100%;white-space:normal;padding:10px 12px;}
+    .footer {font-size:10px;line-height:1.55;margin-top:26px;padding:15px 8px 6px;}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -2059,16 +2071,14 @@ else:
 # =====================================================
 st.markdown("""
 <div class="footer">
-    <b style="color:#17324D;font-size:13px;">
-        Urdu Resume Skill Extractor
-    </b><br>
-    Intelligent Resume Analysis & Candidate Information Extraction<br>
-    Academic Final Year Project | 2026–2027<br>
-    Python • Streamlit • PDF • Word • Excel<br><br>
-    <b style="color:#176B70;">Designed & Developed by Hina Arshad</b><br>
+    <b style="color:#17324D;font-size:13px;">Urdu Resume Skill Extractor</b><br>
+    AI-Powered Resume Analysis & Skill Extraction<br>
+    Final Year Project | 2026–2027<br>
+    Python · Streamlit · PDF · Word · Excel<br>
+    <b style="color:#176B70;">Developed by Hina Arshad</b><br>
     <span style="font-size:10px;">
-        This tool provides automated assistance. Please verify extracted
-        information before making recruitment decisions.
+        Verify all details before downloading. Scanned PDFs (OCR) are not supported;
+        complex PDF layouts may affect extraction.
     </span>
 </div>
 """, unsafe_allow_html=True)
