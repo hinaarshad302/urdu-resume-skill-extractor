@@ -8,3 +8,4 @@ openpyxl
 reportlab
 arabic-reshaper
 python-bidi
+google-genai
