@@ -111,14 +111,14 @@ ORIGINAL RESUME TEXT:
 {resume_text[:26000]}
 """
 
-    # Try stable Gemini models in order. Keep the real API error visible
-    # so quota, key, permission, and temporary capacity problems are distinguishable.
+    # Use lightweight models first for resume extraction and translation.
+    # Keep a Flash model as the final fallback.
     response = None
     last_api_error = None
     model_options = (
-        "gemini-3.8-flash",
-        "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.6-flash",
     )
 
     for model_name in model_options:
