@@ -1377,6 +1377,49 @@ if uploaded_file:
                 )
 
             # -----------------------------------------
+            # 09A LIVE URDU CONTENT PREVIEW
+            # -----------------------------------------
+            st.markdown("#### 👁️ Urdu Content Preview")
+            urdu_preview_items = [
+                ("پیشہ ورانہ تعارف", urdu_profile.get("summary", "")),
+                ("مہارتیں", urdu_profile.get("skills", "")),
+                ("تعلیم", urdu_profile.get("education", "")),
+                ("تجربہ", urdu_profile.get("experience", "")),
+                ("منصوبے", urdu_profile.get("projects", "")),
+                ("زبانیں", urdu_profile.get("languages", ""))
+            ]
+            filled_urdu_items = [
+                (heading, value) for heading, value in urdu_preview_items
+                if str(value or "").strip()
+            ]
+
+            if language in ["Urdu", "Bilingual"]:
+                if filled_urdu_items:
+                    st.markdown(
+                        '<div class="content-card" dir="rtl" style="text-align:right;">',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(f"### {html.escape(profile.get('name') or 'نام درج نہیں')}")
+                    st.caption(
+                        f"{html.escape(profile.get('email') or '')}  |  "
+                        f"{html.escape(profile.get('phone') or '')}"
+                    )
+                    for heading, value in filled_urdu_items:
+                        st.markdown(f"**{heading}**")
+                        st.markdown(
+                            '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
+                            + html.escape(str(value))
+                            + '</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.divider()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.info("Urdu preview yahan show hoga. Pehle Section 09 ke Urdu fields fill karein.")
+            else:
+                st.info("Urdu preview dekhne ke liye CV Language mein Urdu ya Bilingual select karein.")
+
+            # -----------------------------------------
             # 10 EXPORT PROFESSIONAL CV
             # -----------------------------------------
             st.markdown(
@@ -1422,6 +1465,51 @@ if uploaded_file:
                     if str(urdu_profile.get(key, "") or "").strip()
                 )
                 st.caption(f"Urdu sections completed: {filled_count}/{len(SECTION_KEYS)}")
+
+            # Final CV preview before download
+            st.markdown("### 📄 Final CV Preview")
+            st.markdown('<div class="content-card">', unsafe_allow_html=True)
+            st.markdown(f"## {html.escape(profile.get('name') or 'Candidate Name')}")
+            if profile.get("job"):
+                st.markdown(f"**{html.escape(profile['job'])}**")
+            contact_line = "  |  ".join(
+                html.escape(value) for value in
+                [profile.get("email", ""), profile.get("phone", "")]
+                if value
+            )
+            if contact_line:
+                st.caption(contact_line)
+
+            preview_fields = [
+                ("Professional Summary", "summary"),
+                ("Skills", "skills"),
+                ("Education", "education"),
+                ("Experience", "experience"),
+                ("Projects", "projects"),
+                ("Languages", "languages")
+            ]
+            if language in ["English", "Bilingual"]:
+                for heading, key in preview_fields:
+                    value = profile.get(key, "")
+                    if value:
+                        st.markdown(f"**{heading}**")
+                        st.write(value)
+
+            if language in ["Urdu", "Bilingual"]:
+                st.markdown("---")
+                st.markdown('<div dir="rtl" style="text-align:right;">', unsafe_allow_html=True)
+                for heading, value in urdu_preview_items:
+                    if str(value or "").strip():
+                        st.markdown(f"**{heading}**")
+                        st.markdown(
+                            '<div dir="rtl" style="text-align:right;white-space:pre-wrap;">'
+                            + html.escape(str(value))
+                            + '</div>',
+                            unsafe_allow_html=True
+                        )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
             e1, e2, e3 = st.columns(3)
 
