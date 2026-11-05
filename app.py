@@ -85,8 +85,12 @@ STRICT FACTUAL RULES:
 - Do not create experience when the source has none.
 - Preserve candidate name, email, and phone exactly as supplied in the profile.
 - Improve grammar and organization without changing facts.
-- Translate supported content into natural professional Urdu.
-- Keep email and phone unchanged in both language versions.
+- The English object must be a separate, professional English CV.
+- The Urdu object must be a separate CV written in Urdu script for all natural-language content.
+- In Urdu summary, education, experience, project descriptions, and languages, do not copy full English sentences from the English object.
+- Translate ordinary/soft skills into Urdu (for example Communication = ابلاغی مہارت, Problem Solving = مسئلہ حل کرنے کی مہارت, Teamwork = ٹیم ورک, Time Management = وقت کا انتظام).
+- Keep official technology names, acronyms, programming languages, frameworks, tool names, and official project/product names in English (for example AI, RAG, FastAPI, Streamlit, Gemini, FAISS).
+- Keep email, phone, candidate name, and official institution names unchanged where appropriate.
 - If information is absent, return an empty string for that field.
 - Return valid JSON only. No Markdown fences and no explanation.
 
