@@ -111,35 +111,45 @@ ORIGINAL RESUME TEXT:
 {resume_text[:26000]}
 """
 
-    # Retry temporary Gemini server/load errors before showing an error.
+    # Try the primary model, then a lighter stable model if it is overloaded.
     response = None
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    max_output_tokens=4096,
-                    temperature=0.2
+    last_api_error = None
+    model_options = ("gemini-3.8-flash", "gemini-3.5-flash-lite")
+
+    for model_name in model_options:
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        max_output_tokens=4096,
+                        temperature=0.2
+                    )
                 )
-            )
+                break
+            except Exception as api_error:
+                last_api_error = api_error
+                error_text = str(api_error).lower()
+                temporary_error = any(
+                    marker in error_text
+                    for marker in ("503", "429", "500", "502", "504",
+                                   "unavailable", "resource_exhausted",
+                                   "high demand", "overloaded")
+                )
+                if not temporary_error:
+                    raise
+                if attempt == 0:
+                    time.sleep(2)
+
+        if response is not None:
             break
-        except Exception as api_error:
-            error_text = str(api_error).lower()
-            temporary_error = any(
-                marker in error_text
-                for marker in ("503", "429", "500", "502", "504",
-                               "unavailable", "resource_exhausted",
-                               "high demand", "overloaded")
-            )
-            if not temporary_error or attempt == 2:
-                if temporary_error:
-                    raise RuntimeError(
-                        "Gemini server par abhi load zyada hai. "
-                        "Kuch minutes baad dobara Generate button press karein."
-                    ) from api_error
-                raise
-            time.sleep(2 ** (attempt + 1))
+
+    if response is None:
+        raise RuntimeError(
+            "Gemini ke dono models is waqt busy hain. Kuch minutes baad "
+            "dobara Generate button press karein."
+        ) from last_api_error
 
     raw = (response.text or "").strip()
     raw = re.sub(r"^\s*```(?:json)?\s*", "", raw, flags=re.I)
