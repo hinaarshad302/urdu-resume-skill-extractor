@@ -304,253 +304,192 @@ def extract_skills(text):
 
 
 # =====================================================
-# EDUCATION EXTRACTION
+# SECTION-AWARE RESUME EXTRACTION
 # =====================================================
+def normalize_heading(line):
+    value = re.sub(r"^\s*\d{1,2}[.)\-:]?\s*", "", str(line)).strip().lower()
+    value = re.sub(r"[:|]+$", "", value).strip()
+    return value
+
+
+SECTION_ALIASES = {
+    "projects": {"project", "projects", "my projects", "personal projects", "academic projects"},
+    "experience": {"experience", "work experience", "professional experience", "employment history", "work history"},
+    "education": {"education", "academic background", "academic qualification", "qualifications"},
+    "skills": {"skills", "technical skills", "key skills", "core competencies"},
+    "summary": {"profile", "professional summary", "career objective", "summary", "about me"},
+    "languages": {"languages", "language"},
+}
+
+ALL_SECTION_HEADINGS = set().union(*SECTION_ALIASES.values()) | {
+    "certifications", "certificates", "achievements", "awards", "references",
+    "interests", "hobbies", "contact", "contact information"
+}
+
+
+def is_section_heading(line):
+    return normalize_heading(line) in ALL_SECTION_HEADINGS
+
+
+def get_section_lines(text, section_name):
+    lines = get_clean_lines(text)
+    aliases = SECTION_ALIASES.get(section_name, {section_name})
+    active = False
+    collected = []
+    for line in lines:
+        heading = normalize_heading(line)
+        if heading in aliases:
+            active = True
+            continue
+        if active and heading in ALL_SECTION_HEADINGS:
+            break
+        if active:
+            collected.append(line)
+    return collected
+
+
+def remove_contact_noise(value):
+    value = clean_extracted_line(value)
+    if not value:
+        return ""
+    if re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", value, re.I):
+        return ""
+    if re.search(r"(?:\+92|0092|0)?[\s-]?\d{3}[\s-]?\d{7}", value):
+        return ""
+    if re.search(r"https?://|www\.|linkedin\.com|github\.com", value, re.I):
+        return ""
+    if re.match(r"^(address|location|email|phone|mobile|contact)\s*[:|-]", value, re.I):
+        return ""
+    return value
+
+
 def extract_education(text):
-
-    education_keywords = [
-        "phd", "ph.d", "master", "bachelor",
-        "bs computer science", "bs cs", "bscs",
-        "bba", "mba", "b.com", "m.com",
-        "associate degree", "intermediate",
-        "matric", "secondary school",
-        "higher secondary", "diploma",
-        "degree", "computer science",
-        "software engineering",
-        "information technology",
-        "university", "college"
-    ]
-
-    results = []
-
-    for line in get_clean_lines(text):
-
-        lower_line = line.lower()
-
-        if re.match(
-            r"^(english|urdu|language|languages|skills?|experience)\s*[-:|]",
-            lower_line
-        ):
+    keywords = (
+        "phd", "ph.d", "master", "bachelor", "bs computer science",
+        "bs cs", "bscs", "bba", "mba", "b.com", "m.com",
+        "associate degree", "intermediate", "matric", "secondary school",
+        "higher secondary", "diploma", "degree", "computer science",
+        "software engineering", "information technology", "university", "college"
+    )
+    source_lines = get_section_lines(text, "education")
+    if not source_lines:
+        source_lines = get_clean_lines(text)
+    results, seen = [], set()
+    for line in source_lines:
+        value = remove_contact_noise(line)
+        lower = value.lower()
+        if not value or not any(k in lower for k in keywords):
             continue
-
-        if re.fullmatch(
-            r"(english|urdu|arabic|punjabi)\s*.*",
-            lower_line
-        ):
-            continue
-
-        if any(keyword in lower_line for keyword in education_keywords):
-            if len(line) >= 4 and line not in results:
-                results.append(line)
-
+        key = re.sub(r"[^a-z0-9]", "", lower)
+        if key and key not in seen:
+            seen.add(key)
+            results.append(value)
     return results[:10]
 
 
-# =====================================================
-# PROJECT EXTRACTION
-# =====================================================
 def extract_projects(text):
+    lines = get_section_lines(text, "projects")
+    if not lines:
+        return []
 
-    lines = get_clean_lines(text)
     projects = []
+    current = []
+    title_pattern = re.compile(
+        r"^(?:\d{1,2}[.)]?\s+)?(.{3,100})$"
+    )
+    known_project_words = (
+        "aura", "skillgap", "roadmap generator", "complaint sathi",
+        "hospital rag", "rag assistant", "generator", "automation system"
+    )
 
-    project_heading_found = False
-    current_project = []
-
-    stop_headings = [
-        "profile",
-        "professional summary",
-        "career objective",
-        "experience",
-        "work experience",
-        "education",
-        "technical skills",
-        "skills",
-        "languages",
-        "certifications",
-        "references",
-        "achievements",
-        "awards"
-    ]
-
-    def save_current_project():
-
-        nonlocal current_project
-
-        if current_project:
-
-            cleaned = []
-
-            for item in current_project:
-                item = clean_extracted_line(item)
-
-                if item and item not in cleaned:
-                    cleaned.append(item)
-
-            if cleaned:
-                projects.append("\n".join(cleaned))
-
-        current_project = []
+    def save_project():
+        nonlocal current
+        cleaned = []
+        for raw in current:
+            value = remove_contact_noise(raw)
+            if value and value not in cleaned:
+                cleaned.append(value)
+        if cleaned:
+            item = "\n".join(cleaned)
+            if item not in projects:
+                projects.append(item)
+        current = []
 
     for line in lines:
-
-        lower_line = line.lower().strip()
-
-        # Detect the Projects section.
-        if re.fullmatch(r"(my\s+)?projects?", lower_line):
-            project_heading_found = True
+        value = remove_contact_noise(line)
+        if not value:
             continue
+        numbered = re.match(r"^\s*\d{1,2}[.)\-:]\s*(.+)$", value)
+        looks_like_title = bool(numbered) or (
+            len(value) <= 100 and
+            any(word in value.lower() for word in known_project_words)
+        )
+        if looks_like_title:
+            save_project()
+            title = numbered.group(1).strip() if numbered else value
+            if not re.fullmatch(r"\d{4}", title):
+                current = [title]
+        elif current:
+            current.append(value)
+        elif len(value) >= 8:
+            # Some CVs use unnumbered project descriptions; keep the first
+            # line as a title only when the Projects section explicitly exists.
+            current = [value]
 
-        # Also handle headings mixed with a candidate name.
-        if re.search(r"\bprojects?\b", lower_line) and len(line) <= 35:
-            project_heading_found = True
-            continue
-
-        if project_heading_found:
-
-            if lower_line.rstrip(":") in stop_headings:
-                save_current_project()
-                break
-
-            # Numbered project title: 1 AURA, 2 AI Assistant, etc.
-            numbered_title = re.match(
-                r"^\s*(\d{1,2})[.)]?\s+(.{3,100})$",
-                line
-            )
-
-            if numbered_title:
-
-                save_current_project()
-
-                title = numbered_title.group(2).strip()
-
-                # Ignore a numbered line that is only a year or duration.
-                if not re.fullmatch(r"\d{4}", title):
-                    current_project = [title]
-
-                continue
-
-            if current_project:
-
-                # Avoid collecting unrelated headings.
-                if len(line) <= 35 and lower_line in stop_headings:
-                    save_current_project()
-                    break
-
-                current_project.append(line)
-
-    save_current_project()
-
-    # Fallback for documents with project titles but no numbered list.
-    if not projects:
-
-        for line in lines:
-
-            lower_line = line.lower()
-
-            if any(word in lower_line for word in [
-                "project", "assistant", "generator",
-                "automation system", "roadmap"
-            ]):
-
-                if len(line) >= 8 and line not in projects:
-                    projects.append(line)
-
+    save_project()
     return projects[:12]
 
 
-# =====================================================
-# EXPERIENCE EXTRACTION
-# =====================================================
 def extract_experience(text):
+    lines = get_section_lines(text, "experience")
+    if not lines:
+        # Conservative fallback: do not scan every line for "assistant",
+        # because project names such as "Hospital RAG Assistant" are not jobs.
+        return []
 
-    lines = get_clean_lines(text)
-    results = []
-
-    role_keywords = [
-        "teacher", "assistant", "developer",
-        "engineer", "manager", "designer",
-        "coordinator", "analyst", "accountant",
-        "intern", "consultant", "officer",
-        "administrator", "supervisor",
-        "technician", "operator", "lecturer",
-        "instructor", "sales", "marketing",
-        "data entry", "customer service"
-    ]
-
+    role_pattern = re.compile(
+        r"\b(teacher|teaching|data entry|customer service|developer|engineer|"
+        r"manager|designer|coordinator|analyst|accountant|intern|consultant|"
+        r"officer|administrator|supervisor|technician|operator|lecturer|"
+        r"instructor|sales|marketing)\b", re.I
+    )
     duration_pattern = re.compile(
-        r"\b(\d+\s*(?:year|years|month|months|week|weeks))\b",
-        re.I
+        r"\b\d+\s*(?:years?|months?|weeks?)\b", re.I
+    )
+    action_pattern = re.compile(
+        r"\b(managed|supported|handled|responsible|maintained|prepared|"
+        r"assisted|organized|provided|conducted|created|trained|taught|"
+        r"documented|performed|coordinated|entered|updated)\b", re.I
     )
 
-    action_keywords = [
-        "managed", "supported", "handled",
-        "responsible", "maintained",
-        "prepared", "assisted", "organized",
-        "provided", "conducted", "created",
-        "trained", "taught", "documented",
-        "performed", "coordinated"
-    ]
+    results, current = [], []
+    for line in lines:
+        value = remove_contact_noise(line)
+        if not value:
+            continue
+        if role_pattern.search(value):
+            if current:
+                results.append("\n".join(current))
+            current = [value]
+        elif current and (
+            duration_pattern.search(value) or action_pattern.search(value)
+            or value.startswith(("•", "-", "▪"))
+        ):
+            current.append(value)
+        elif current and len(current) == 1 and len(value) < 140:
+            current.append(value)
 
-    # Find lines that look like actual job titles.
-    role_indexes = []
+    if current:
+        results.append("\n".join(dict.fromkeys(current)))
 
-    for index, line in enumerate(lines):
-
-        lower_line = line.lower()
-
-        if any(keyword in lower_line for keyword in role_keywords):
-
-            # Exclude project descriptions and skill lists.
-            if any(word in lower_line for word in [
-                "project", "projects", "ai agents",
-                "technical skills", "tools:"
-            ]):
-                continue
-
-            role_indexes.append(index)
-
-    for index in role_indexes:
-
-        role_line = lines[index]
-        entry = [role_line]
-
-        # Collect nearby duration and responsibility lines.
-        for next_index in range(index + 1, min(index + 5, len(lines))):
-
-            next_line = lines[next_index]
-            lower_next = next_line.lower()
-
-            # Do not pull in another job title.
-            if any(
-                keyword in lower_next
-                for keyword in role_keywords
-            ):
-                break
-
-            if duration_pattern.search(next_line):
-                entry.append(next_line)
-                continue
-
-            if any(
-                keyword in lower_next
-                for keyword in action_keywords
-            ):
-                entry.append(next_line)
-                continue
-
-            # Bullet-like descriptions can contain a verb without
-            # a strong action keyword.
-            if next_line.startswith(("•", "-", "▪")):
-                entry.append(next_line)
-
-        formatted = "\n".join(dict.fromkeys(entry))
-
-        if formatted not in results:
-            results.append(formatted)
-
-    return results[:10]
-
+    unique = []
+    seen = set()
+    for item in results:
+        key = re.sub(r"\s+", " ", item.lower()).strip()
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique[:10]
 
 # =====================================================
 # LANGUAGE LABELS
@@ -593,33 +532,43 @@ SECTION_KEYS = [
 
 
 # =====================================================
-# WORD EXPORT HELPERS
+# WORD EXPORT HELPERS - ENGLISH + URDU RTL
 # =====================================================
+def set_run_font(run, font_name="Noto Nastaliq Urdu"):
+    run.font.name = font_name
+    r_pr = run._element.get_or_add_rPr()
+    r_fonts = r_pr.rFonts
+    if r_fonts is None:
+        r_fonts = OxmlElement("w:rFonts")
+        r_pr.insert(0, r_fonts)
+    for attr in ("ascii", "hAnsi", "cs", "eastAsia"):
+        r_fonts.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}" + attr, font_name)
+    rtl = OxmlElement("w:rtl")
+    r_pr.append(rtl)
+
+
 def set_paragraph_rtl(paragraph):
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_pr = paragraph._p.get_or_add_pPr()
     bidi = OxmlElement("w:bidi")
     p_pr.append(bidi)
+    for run in paragraph.runs:
+        set_run_font(run)
 
 
 def add_docx_section(doc, heading, value, rtl=False):
-
     if not str(value or "").strip():
         return
-
     h = doc.add_heading(heading, level=1)
     p = doc.add_paragraph(str(value))
-
     if rtl:
         set_paragraph_rtl(h)
         set_paragraph_rtl(p)
 
 
 def build_docx(profile, language, urdu_profile=None):
-
     urdu_profile = urdu_profile or {}
     doc = Document()
-
     section = doc.sections[0]
     section.top_margin = Inches(0.65)
     section.bottom_margin = Inches(0.65)
@@ -627,67 +576,33 @@ def build_docx(profile, language, urdu_profile=None):
     section.right_margin = Inches(0.7)
 
     normal = doc.styles["Normal"]
-    normal.font.name = "Arial"
+    normal.font.name = "Aptos"
     normal.font.size = Pt(10)
-
-    doc.add_heading(profile["name"] or "Candidate CV", 0)
-
+    title = doc.add_heading(profile["name"] or "Candidate CV", 0)
+    if language == "Urdu":
+        set_paragraph_rtl(title)
     if profile["job"]:
-        doc.add_paragraph(profile["job"])
-
-    contact = " | ".join(
-        x for x in [profile["email"], profile["phone"]] if x
-    )
-
+        p = doc.add_paragraph(profile["job"])
+        if language == "Urdu":
+            set_paragraph_rtl(p)
+    contact = " | ".join(x for x in [profile["email"], profile["phone"]] if x)
     if contact:
         doc.add_paragraph(contact)
 
-    if language == "Urdu":
-
-        for key in SECTION_KEYS:
+    for key in SECTION_KEYS:
+        if language in ("English", "Bilingual"):
+            add_docx_section(doc, LABELS["English"][key], profile.get(key, ""))
+        if language in ("Urdu", "Bilingual"):
             add_docx_section(
-                doc,
-                LABELS["Urdu"][key],
-                urdu_profile.get(key, ""),
-                rtl=True
-            )
-
-    elif language == "Bilingual":
-
-        for key in SECTION_KEYS:
-
-            add_docx_section(
-                doc,
-                LABELS["English"][key],
-                profile.get(key, "")
-            )
-
-            add_docx_section(
-                doc,
-                LABELS["Urdu"][key],
-                urdu_profile.get(key, ""),
-                rtl=True
-            )
-
-    else:
-
-        for key in SECTION_KEYS:
-            add_docx_section(
-                doc,
-                LABELS["English"][key],
-                profile.get(key, "")
+                doc, LABELS["Urdu"][key], urdu_profile.get(key, ""), rtl=True
             )
 
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer.add_run(
-        "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
-    )
-
+    footer.add_run("Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad")
     output = io.BytesIO()
     doc.save(output)
     return output.getvalue()
-
 
 # =====================================================
 # EXCEL EXPORT
@@ -791,221 +706,103 @@ def build_xlsx(profile, language, urdu_profile=None):
 
 
 # =====================================================
-# PDF EXPORT
-# Urdu font required:
-# assets/NotoNastaliqUrdu-Regular.ttf
+# PDF EXPORT - URDU SHAPING + RIGHT TO LEFT
 # =====================================================
 def build_pdf(profile, language, urdu_profile=None):
-
     urdu_profile = urdu_profile or {}
     output = io.BytesIO()
-
     doc = SimpleDocTemplate(
-        output,
-        pagesize=A4,
-        rightMargin=42,
-        leftMargin=42,
-        topMargin=42,
-        bottomMargin=55
+        output, pagesize=A4, rightMargin=42, leftMargin=42,
+        topMargin=42, bottomMargin=55
     )
-
-    has_urdu = language in ["Urdu", "Bilingual"]
+    has_urdu = language in ("Urdu", "Bilingual")
     font_name = "Helvetica"
-
     if has_urdu:
-
         if not URDU_SHAPING_AVAILABLE:
-            raise ValueError(
-                "Urdu PDF ke liye arabic-reshaper aur python-bidi "
-                "requirements.txt mein add karein."
-            )
-
-        font_path = os.path.join(
-            "assets",
-            "NotoNastaliqUrdu-Regular.ttf"
-        )
-
+            raise ValueError("Urdu PDF packages missing: arabic-reshaper, python-bidi.")
+        font_path = os.path.join("assets", "NotoNastaliqUrdu-Regular.ttf")
         if not os.path.exists(font_path):
-            raise ValueError(
-                "Urdu PDF font missing hai. GitHub ke assets folder mein "
-                "NotoNastaliqUrdu-Regular.ttf upload karein."
-            )
-
+            raise ValueError("NotoNastaliqUrdu-Regular.ttf assets folder mein nahi mila.")
         if "UrduFont" not in pdfmetrics.getRegisteredFontNames():
             pdfmetrics.registerFont(TTFont("UrduFont", font_path))
-
         font_name = "UrduFont"
 
     styles = getSampleStyleSheet()
-
     title_style = ParagraphStyle(
-        "CVTitle",
-        parent=styles["Title"],
-        fontName="Helvetica-Bold",
-        fontSize=19,
-        leading=28,
-        textColor=colors.HexColor("#102A43"),
-        alignment=TA_LEFT,
-        spaceAfter=10
+        "CVTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=19, leading=27, textColor=colors.HexColor("#102A43"),
+        alignment=TA_LEFT, spaceAfter=10
     )
-
     english_heading = ParagraphStyle(
-        "EnglishHeading",
-        parent=styles["Heading2"],
-        fontName="Helvetica-Bold",
-        fontSize=12,
-        leading=18,
-        textColor=colors.HexColor("#176B70"),
-        alignment=TA_LEFT,
-        spaceBefore=12,
-        spaceAfter=5
+        "EnglishHeading", parent=styles["Heading2"],
+        fontName="Helvetica-Bold", fontSize=12, leading=18,
+        textColor=colors.HexColor("#176B70"), alignment=TA_LEFT,
+        spaceBefore=12, spaceAfter=5
     )
-
     urdu_heading = ParagraphStyle(
-        "UrduHeading",
-        parent=styles["Heading2"],
-        fontName=font_name,
-        fontSize=12,
-        leading=24,
-        textColor=colors.HexColor("#176B70"),
-        alignment=TA_RIGHT,
-        spaceBefore=12,
-        spaceAfter=7
+        "UrduHeading", parent=styles["Heading2"], fontName=font_name,
+        fontSize=12, leading=27, textColor=colors.HexColor("#176B70"),
+        alignment=TA_RIGHT, spaceBefore=12, spaceAfter=8
     )
-
     english_body = ParagraphStyle(
-        "EnglishBody",
-        parent=styles["BodyText"],
-        fontName="Helvetica",
-        fontSize=9.5,
-        leading=15,
-        alignment=TA_LEFT
+        "EnglishBody", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=9.5, leading=15, alignment=TA_LEFT, spaceAfter=4
     )
-
     urdu_body = ParagraphStyle(
-        "UrduBody",
-        parent=styles["BodyText"],
-        fontName=font_name,
-        fontSize=10,
-        leading=24,
-        alignment=TA_RIGHT
+        "UrduBody", parent=styles["BodyText"], fontName=font_name,
+        fontSize=10, leading=27, alignment=TA_RIGHT, spaceAfter=5
     )
 
     def safe_text(value):
-        return html.escape(
-            str(value or "")
-        ).replace("\n", "<br/>")
+        return html.escape(str(value or "")).replace("\n", "<br/>")
 
     def shape_urdu(value):
-
         if not value:
             return ""
-
         if not URDU_SHAPING_AVAILABLE:
             return safe_text(value)
-
-        shaped_lines = []
-
+        shaped = []
         for line in str(value).splitlines():
-
-            escaped = html.escape(line)
-
-            if escaped.strip():
-                shaped_lines.append(
-                    get_display(
-                        arabic_reshaper.reshape(escaped)
-                    )
-                )
+            if line.strip():
+                # Shape raw Unicode first; escape only after shaping.
+                shaped_line = get_display(arabic_reshaper.reshape(line))
+                shaped.append(html.escape(shaped_line))
             else:
-                shaped_lines.append("&nbsp;")
-
-        return "<br/>".join(shaped_lines)
+                shaped.append("&nbsp;")
+        return "<br/>".join(shaped)
 
     story = []
-
-    story.append(
-        Paragraph(
-            safe_text(profile["name"] or "Candidate CV"),
-            title_style
-        )
-    )
-
+    story.append(Paragraph(safe_text(profile["name"] or "Candidate CV"), title_style))
     if profile["job"]:
-        story.append(
-            Paragraph(
-                safe_text(profile["job"]),
-                english_body
-            )
-        )
-
-    contact = " | ".join(
-        x for x in [profile["email"], profile["phone"]] if x
-    )
-
+        story.append(Paragraph(safe_text(profile["job"]), english_body))
+    contact = " | ".join(x for x in [profile["email"], profile["phone"]] if x)
     if contact:
         story.append(Paragraph(safe_text(contact), english_body))
 
     for key in SECTION_KEYS:
-
-        english_value = profile.get(key, "")
-        urdu_value = urdu_profile.get(key, "")
-
-        if language in ["English", "Bilingual"] and english_value.strip():
-
-            story.append(
-                Paragraph(
-                    safe_text(LABELS["English"][key]),
-                    english_heading
-                )
-            )
-
-            story.append(
-                Paragraph(
-                    safe_text(english_value),
-                    english_body
-                )
-            )
-
-        if language in ["Urdu", "Bilingual"] and urdu_value.strip():
-
-            story.append(
-                Paragraph(
-                    shape_urdu(LABELS["Urdu"][key]),
-                    urdu_heading
-                )
-            )
-
-            story.append(
-                Paragraph(
-                    shape_urdu(urdu_value),
-                    urdu_body
-                )
-            )
+        en_value = profile.get(key, "")
+        ur_value = urdu_profile.get(key, "")
+        if language in ("English", "Bilingual") and en_value.strip():
+            story.append(Paragraph(safe_text(LABELS["English"][key]), english_heading))
+            story.append(Paragraph(safe_text(en_value), english_body))
+        if language in ("Urdu", "Bilingual") and ur_value.strip():
+            story.append(Paragraph(shape_urdu(LABELS["Urdu"][key]), urdu_heading))
+            story.append(Paragraph(shape_urdu(ur_value), urdu_body))
 
     def add_pdf_footer(canvas, document):
-
         canvas.saveState()
         canvas.setStrokeColor(colors.HexColor("#DCE5EC"))
         canvas.line(42, 38, A4[0] - 42, 38)
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#718096"))
-
         canvas.drawCentredString(
-            A4[0] / 2,
-            24,
+            A4[0] / 2, 24,
             "Prepared with Urdu Resume Skill Extractor | Built by Hina Arshad"
         )
-
         canvas.restoreState()
 
-    doc.build(
-        story,
-        onFirstPage=add_pdf_footer,
-        onLaterPages=add_pdf_footer
-    )
-
+    doc.build(story, onFirstPage=add_pdf_footer, onLaterPages=add_pdf_footer)
     return output.getvalue()
-
 
 # =====================================================
 # SIDEBAR - ORIGINAL DESIGN
@@ -1094,7 +891,7 @@ with st.sidebar:
     st.caption("ACADEMIC PROJECT")
     st.markdown("**FYP 2026–2027**")
     st.caption("Developed with Python and Streamlit")
-    st.caption("Prototype Version 1.2")
+    st.caption("Prototype Version 1.3")
 
     st.markdown(
         '<div class="sidebar-credit">Built by Hina Arshad</div>',
