@@ -4,6 +4,7 @@ import re
 import io
 import os
 import html
+import hashlib
 import json
 import streamlit as st
 import pdfplumber
@@ -1473,6 +1474,19 @@ uploaded_file = st.file_uploader(
 # PROCESS RESUME
 # =====================================================
 if uploaded_file:
+
+    file_signature = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
+    if st.session_state.get("active_resume_signature") != file_signature:
+        st.session_state["active_resume_signature"] = file_signature
+        st.session_state["ai_generated_profiles"] = None
+        for old_widget_key in (
+            "candidate_name", "candidate_email", "candidate_phone",
+            "target_job", "candidate_summary", "cv_language",
+            "candidate_skills", "candidate_education",
+            "candidate_experience", "candidate_projects",
+            "candidate_languages"
+        ):
+            st.session_state.pop(old_widget_key, None)
 
     try:
 
