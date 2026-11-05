@@ -955,10 +955,9 @@ def build_pdf(profile, language, urdu_profile=None):
     # is unavailable, use arabic_reshaper + python-bidi.
     # -------------------------------------------------
 
-    try:
-        URDU_RAQM_AVAILABLE = features.check("raqm")
-    except Exception:
-        URDU_RAQM_AVAILABLE = False
+    # Use the stable reshaper + bidi path for Urdu PDF rendering.
+    # This avoids device/build-specific RAQM rendering differences.
+    URDU_RAQM_AVAILABLE = False
 
     def make_urdu_font(font_size, scale=3):
         layout = (
