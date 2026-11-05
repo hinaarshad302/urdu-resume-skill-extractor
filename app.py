@@ -388,14 +388,14 @@ def remove_contact_noise(value):
     value = clean_extracted_line(value)
     if not value:
         return ""
-    if re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", value, re.I):
+    value = re.sub(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "", value, flags=re.I)
+    value = re.sub(r"(?:\+92|0092|0)?[\s-]?\d{3}[\s-]?\d{7}", "", value)
+    value = re.sub(r"https?://\S+|www\.\S+|linkedin\.com/\S*|github\.com/\S*", "", value, flags=re.I)
+    if re.match(r"^(address|location|email|phone|mobile|contact)\s*[:|-]", value.strip(), re.I):
         return ""
-    if re.search(r"(?:\+92|0092|0)?[\s-]?\d{3}[\s-]?\d{7}", value):
+    if re.search(r"rahim yar khan|punjab|pakistan", value, re.I):
         return ""
-    if re.search(r"https?://|www\.|linkedin\.com|github\.com", value, re.I):
-        return ""
-    if re.match(r"^(address|location|email|phone|mobile|contact)\s*[:|-]", value, re.I):
-        return ""
+    value = re.sub(r"\s+", " ", value).strip(" |,-")
     return value
 
 
@@ -418,7 +418,7 @@ def extract_education(text):
             continue
         key = re.sub(r"[^a-z0-9]", "", lower)
         # Merge common duplicate degree-name variants (e.g. BSCS / Bachelor of Science in CS).
-        if "computer science" in lower and ("bachelor" in lower or "bscs" in lower or "bs cs" in lower):
+        if "computer science" in lower and ("bachelor" in lower or "bscs" in lower or "bs cs" in lower or "bs computer science" in lower):
             key = "bachelorcomputerscience"
         if key and key not in seen:
             seen.add(key)
@@ -458,7 +458,10 @@ def extract_projects(text):
         value = remove_contact_noise(line)
         if not value:
             continue
-        numbered = re.match(r"^\s*\d{1,2}[.)\-:]\s*(.+)$", value)
+        # Ignore the two-column PDF header fragment above the first project.
+        if value.endswith("|") and len(value) < 70:
+            continue
+        numbered = re.match(r"^\s*\d{1,2}(?:[.)\-:]\s*|\s+)(.+)$", value)
         looks_like_title = bool(numbered) or (
             len(value) <= 100 and
             any(word in value.lower() for word in known_project_words)
