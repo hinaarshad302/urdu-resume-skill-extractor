@@ -27,7 +27,7 @@ try:
     URDU_SHAPING_AVAILABLE = True
 except ImportError:
     URDU_SHAPING_AVAILABLE = False
-    from PIL import Image as PILImage, ImageDraw, ImageFont
+   from PIL import Image as PILImage, ImageDraw, ImageFont, Image
 
 
 # =====================================================
