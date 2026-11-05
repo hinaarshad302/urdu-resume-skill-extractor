@@ -701,6 +701,13 @@ def extract_experience(text):
             # PDF column extraction can prepend the end of the Profile section
             # to the first job title. Keep only text from the actual role onward.
             value = value[role_match.start():].strip(" |,-")
+            # Also remove trailing fragments pulled from the neighboring PDF column.
+            value = re.split(
+                r"\b(?:projects?|skilled in|strong interest|structured learning)\b",
+                value,
+                maxsplit=1,
+                flags=re.I
+            )[0].strip(" |,-")
             started = True
             if current:
                 results.append("\n".join(current))
@@ -1509,7 +1516,7 @@ if uploaded_file:
         for old_widget_key in (
             "candidate_name", "candidate_email", "candidate_phone",
             "target_job", "candidate_summary", "cv_language",
-            "candidate_skills", "candidate_education",
+            "candidate_skills", "candidate_soft_skills", "candidate_education",
             "candidate_experience", "candidate_projects",
             "candidate_languages"
         ):
