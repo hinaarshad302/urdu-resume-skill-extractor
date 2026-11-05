@@ -111,10 +111,15 @@ ORIGINAL RESUME TEXT:
 {resume_text[:26000]}
 """
 
-    # Try the primary model, then a lighter stable model if it is overloaded.
+    # Try stable Gemini models in order. Keep the real API error visible
+    # so quota, key, permission, and temporary capacity problems are distinguishable.
     response = None
     last_api_error = None
-    model_options = ("gemini-3.8-flash", "gemini-3.5-flash-lite")
+    model_options = (
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+    )
 
     for model_name in model_options:
         try:
@@ -134,20 +139,21 @@ ORIGINAL RESUME TEXT:
             error_text = str(api_error).lower()
             temporary_error = any(
                 marker in error_text
-                for marker in ("503", "429", "500", "502", "504",
-                               "unavailable", "resource_exhausted",
-                               "high demand", "overloaded", "timeout")
+                for marker in (
+                    "503", "429", "500", "502", "504",
+                    "unavailable", "resource_exhausted",
+                    "high demand", "overloaded", "timeout",
+                    "rate limit", "quota"
+                )
             )
             if not temporary_error:
                 raise
 
-        if response is not None:
-            break
-
     if response is None:
+        detail = str(last_api_error) if last_api_error else "Unknown Gemini API error"
         raise RuntimeError(
-            "Gemini ke dono models is waqt busy hain. Kuch minutes baad "
-            "dobara Generate button press karein."
+            "Gemini API ne tamam available models par request reject ki. "
+            "Asal error: " + detail[:1200]
         ) from last_api_error
 
     raw = (response.text or "").strip()
