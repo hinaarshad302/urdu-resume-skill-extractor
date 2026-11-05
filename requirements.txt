@@ -1,7 +1,7 @@
-
 streamlit
 pandas
 pdfplumber
 pypdf
 python-docx
 Pillow
+openpyxl
