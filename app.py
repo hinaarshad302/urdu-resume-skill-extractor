@@ -88,9 +88,15 @@ STRICT FACTUAL RULES:
 - The English object must be a separate, professional English CV.
 - The Urdu object must be a separate CV written in Urdu script for all natural-language content.
 - In Urdu summary, education, experience, project descriptions, and languages, do not copy full English sentences from the English object.
-- Translate ordinary/soft skills into Urdu (for example Communication = ابلاغی مہارت, Problem Solving = مسئلہ حل کرنے کی مہارت, Teamwork = ٹیم ورک, Time Management = وقت کا انتظام).
-- Keep official technology names, acronyms, programming languages, frameworks, tool names, and official project/product names in English (for example AI, RAG, FastAPI, Streamlit, Gemini, FAISS).
-- Keep email, phone, candidate name, and official institution names unchanged where appropriate.
+- In BOTH CVs, divide the skills field into two clearly labelled groups using newline characters:
+  English: "Technical Skills: ..." then "Soft Skills: ..."
+  Urdu: "تکنیکی مہارتیں: ..." then "ذاتی مہارتیں: ..."
+- English technical skills must contain only technical tools, technologies, frameworks, languages, and AI concepts. English soft skills must contain only genuine soft skills.
+- In the Urdu skills field, translate every ordinary/soft skill into natural Urdu ONLY. Do not add English translations in brackets or parentheses. For example: Communication = ابلاغی مہارت; Problem Solving = مسئلہ حل کرنے کی مہارت; Teamwork = ٹیم ورک; Time Management = وقت کا انتظام.
+- In all Urdu natural-language content, use fluent Urdu script. Avoid English verbs or mixed phrases such as "plan, execute, verify, report", "AI powered", or "learning roadmap" when a natural Urdu equivalent exists. Use منصوبہ بندی، کام انجام دینا، تصدیق کرنا، رپورٹ پیش کرنا، مصنوعی ذہانت پر مبنی، and تعلیمی منصوبہ بندی کا خاکہ as appropriate.
+- Keep ONLY official technology names, acronyms, programming languages, frameworks, tool names, and official project/product names in English (for example AI, RAG, FastAPI, Streamlit, Gemini, FAISS, AURA, Hospital RAG Assistant).
+- Do not translate official project names, tools, email, phone, candidate name, or official institution names.
+- Keep project descriptions in Urdu; do not leave English explanatory sentences inside the Urdu CV.
 - If information is absent, return an empty string for that field.
 - Return valid JSON only. No Markdown fences and no explanation.
 
