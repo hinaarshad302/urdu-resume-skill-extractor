@@ -1,4 +1,5 @@
 
+
 import re
 import io
 import os
@@ -6,6 +7,8 @@ import html
 import streamlit as st
 import pdfplumber
 import pandas as pd
+
+from PIL import Image as PILImage, ImageDraw, ImageFont
 
 from docx import Document
 from docx.shared import Inches, Pt
@@ -27,7 +30,6 @@ try:
     URDU_SHAPING_AVAILABLE = True
 except ImportError:
     URDU_SHAPING_AVAILABLE = False
-   from PIL import Image as PILImage, ImageDraw, ImageFont, Image
 
 
 # =====================================================
