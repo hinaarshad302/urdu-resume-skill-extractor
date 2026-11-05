@@ -1259,11 +1259,12 @@ if uploaded_file:
                     key="candidate_summary"
                 )
 
-                language = st.selectbox(
-                    "Select CV Language / CV ki zaban",
-                    ["English", "Urdu", "Bilingual"],
-                    key="cv_language"
-                )
+            language = st.selectbox(
+                "Select CV Language / CV ki zaban",
+                ["English", "Urdu", "Bilingual"],
+                key="cv_language",
+                help="Apni CV ki language select karein: English, Urdu ya dono."
+            )
 
             skills_text = st.text_area(
                 "Skills (comma-separated or one per line)",
