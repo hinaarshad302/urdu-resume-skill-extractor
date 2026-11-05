@@ -576,7 +576,8 @@ SECTION_KEYS = [
 # =====================================================
 # WORD EXPORT HELPERS - ENGLISH + URDU RTL
 # =====================================================
-def set_run_font(run, font_name="Noto Nastaliq Urdu"):
+def set_run_font(run, font_name="Arial"):
+    """Set both normal and complex-script font properties for Urdu text."""
     run.font.name = font_name
     r_pr = run._element.get_or_add_rPr()
     r_fonts = r_pr.rFonts
@@ -584,16 +585,30 @@ def set_run_font(run, font_name="Noto Nastaliq Urdu"):
         r_fonts = OxmlElement("w:rFonts")
         r_pr.insert(0, r_fonts)
     for attr in ("ascii", "hAnsi", "cs", "eastAsia"):
-        r_fonts.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}" + attr, font_name)
-    rtl = OxmlElement("w:rtl")
-    r_pr.append(rtl)
+        r_fonts.set(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}" + attr,
+            font_name
+        )
+    rtl = r_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}rtl")
+    if rtl is None:
+        rtl = OxmlElement("w:rtl")
+        r_pr.append(rtl)
+    lang = r_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lang")
+    if lang is None:
+        lang = OxmlElement("w:lang")
+        r_pr.append(lang)
+    lang.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "ur-PK")
+    lang.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi", "ur-PK")
 
 
 def set_paragraph_rtl(paragraph):
+    """Apply paragraph-level right-to-left direction and Urdu run settings."""
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_pr = paragraph._p.get_or_add_pPr()
-    bidi = OxmlElement("w:bidi")
-    p_pr.append(bidi)
+    bidi = p_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi")
+    if bidi is None:
+        bidi = OxmlElement("w:bidi")
+        p_pr.append(bidi)
     for run in paragraph.runs:
         set_run_font(run)
 
@@ -712,13 +727,22 @@ def build_xlsx(profile, language, urdu_profile=None):
                 vertical="center"
             )
 
+        urdu_pattern = re.compile(r"[\\u0600-\\u06FF]")
         for row in ws.iter_rows(min_row=2):
             for cell in row:
+                contains_urdu = bool(urdu_pattern.search(str(cell.value or "")))
                 cell.alignment = Alignment(
-                    horizontal="right" if language in ["Urdu", "Bilingual"] else "left",
+                    horizontal="right" if contains_urdu or language in ["Urdu", "Bilingual"] else "left",
                     vertical="top",
-                    wrap_text=True
+                    wrap_text=True,
+                    readingOrder=2 if contains_urdu else 0
                 )
+                if contains_urdu:
+                    cell.font = Font(
+                        name="Arial",
+                        size=11,
+                        color="17324D"
+                    )
                 cell.border = Border(bottom=thin_gray)
 
         ws.row_dimensions[1].height = 25
@@ -784,9 +808,10 @@ def build_pdf(profile, language, urdu_profile=None):
         shaped = []
         for line in str(value).splitlines():
             if line.strip():
-                # Shape raw Unicode first; escape only after shaping.
-                shaped_line = get_display(arabic_reshaper.reshape(line))
-                shaped.append(html.escape(shaped_line))
+                # Shape Urdu letters, then apply an explicit RTL base direction.
+                shaped_line = arabic_reshaper.reshape(line)
+                visual_line = get_display(shaped_line, base_dir="R")
+                shaped.append(html.escape(visual_line))
             else:
                 shaped.append("&nbsp;")
         return "<br/>".join(shaped)
