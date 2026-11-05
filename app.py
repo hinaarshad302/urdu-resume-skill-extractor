@@ -54,12 +54,24 @@ def test_gemini_connection():
 
     client = get_gemini_client()
 
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents="Reply with exactly: Gemini connection successful."
-    )
+   response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="Reply with exactly: Gemini connection successful."
+)
 
     return response.text
+    # TEMPORARY GEMINI TEST BUTTON
+
+if st.button("Test Gemini Connection"):
+    try:
+        with st.spinner("Connecting to Gemini..."):
+            result = test_gemini_connection()
+
+        st.success("Gemini Connected Successfully!")
+        st.write(result)
+
+    except Exception as e:
+        st.error(f"Connection Failed: {e}")
 
 
 
