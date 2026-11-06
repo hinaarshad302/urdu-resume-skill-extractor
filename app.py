@@ -41,7 +41,7 @@ st.set_page_config(
     page_title="Urdu Resume Skill Extractor",
     page_icon="📄",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="auto"
 )
 
 # =====================================================
@@ -214,11 +214,11 @@ html, body, [class*="css"] {font-family:'Inter',sans-serif;}
 [data-testid="stSidebar"] .stCaption {color:#B9CBD9 !important;}
 .sidebar-brand {padding:12px 0 22px 0;}
 .sidebar-logo {font-size:34px;margin-bottom:8px;}
-.sidebar-title {font-size:19px;font-weight:800;color:white;line-height:1.4;}
-.sidebar-subtitle {font-size:12px;color:#B9CBD9;margin-top:5px;}
-.sidebar-section {color:#8FCFC8;font-size:11px;font-weight:700;letter-spacing:1.2px;margin-top:22px;margin-bottom:9px;}
-.sidebar-item {padding:9px 11px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);border-radius:9px;margin-bottom:7px;font-size:12px;}
-.sidebar-credit {border-top:1px solid rgba(255,255,255,0.2);margin-top:22px;padding-top:15px;text-align:center;color:#A8E2D8;font-size:12px;font-weight:700;}
+.sidebar-title {font-size:21px;font-weight:800;color:white;line-height:1.4;}
+.sidebar-subtitle {font-size:14px;color:#B9CBD9;margin-top:6px;line-height:1.5;}
+.sidebar-section {color:#8FCFC8;font-size:12px;font-weight:700;letter-spacing:1.2px;margin-top:22px;margin-bottom:10px;}
+.sidebar-item {padding:12px 13px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);border-radius:10px;margin-bottom:8px;font-size:14px;line-height:1.45;}
+.sidebar-credit {border-top:1px solid rgba(255,255,255,0.2);margin-top:22px;padding-top:15px;text-align:center;color:#A8E2D8;font-size:13px;font-weight:700;}
 .hero {background:linear-gradient(120deg,#102A43 0%,#176B70 100%);padding:30px 32px;border-radius:18px;color:white;margin-bottom:24px;box-shadow:0 8px 25px rgba(16,42,67,0.12);}
 .hero h1 {color:white !important;font-size:31px !important;font-weight:800 !important;margin:0 0 10px 0;}
 .hero p {color:#E1F1F1;font-size:14px;margin:0;line-height:1.7;}
@@ -248,22 +248,17 @@ textarea[aria-label*="زبانیں"] {
     /* Keep the main page clear of Streamlit's mobile top toolbar. */
     .block-container {padding:2.35rem 0.85rem 2rem !important;}
 
-    /* Keep the navigation drawer compact when a mobile user opens it. */
-    section[data-testid="stSidebar"] {
-        width: min(78vw, 300px) !important;
-        min-width: min(78vw, 300px) !important;
-        max-width: min(78vw, 300px) !important;
-    }
+    /* Let Streamlit manage the native mobile navigation drawer width. */
 
     .hero {padding:21px 18px;border-radius:14px;margin-bottom:18px;}
-    .hero h1 {font-size:24px !important;line-height:1.25 !important;}
-    .hero p {font-size:13px;line-height:1.55;}
-    .eyebrow {font-size:9px;letter-spacing:1px;}
-    .content-card {padding:14px;}
-    .info-card {padding:14px;min-height:auto;}
-    .card-value {font-size:19px;}
+    .hero h1 {font-size:27px !important;line-height:1.25 !important;}
+    .hero p {font-size:15px;line-height:1.6;}
+    .eyebrow {font-size:11px;letter-spacing:1px;line-height:1.5;}
+    .content-card {padding:16px;}
+    .info-card {padding:16px;min-height:auto;}
+    .card-value {font-size:21px;}
     .stButton > button,.stDownloadButton > button {width:100%;white-space:normal;padding:10px 12px;}
-    .footer {font-size:10px;line-height:1.55;margin-top:26px;padding:15px 8px 6px;}
+    .footer {font-size:12px;line-height:1.6;margin-top:26px;padding:15px 8px 6px;}
 }
 </style>
 """, unsafe_allow_html=True)
