@@ -41,7 +41,7 @@ st.set_page_config(
     page_title="Urdu Resume Skill Extractor",
     page_icon="📄",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # =====================================================
@@ -245,7 +245,16 @@ textarea[aria-label*="زبانیں"] {
 [data-testid="stFileUploader"] {background:white;border:1px dashed #9AB8C8;border-radius:13px;padding:14px;}
 .footer {border-top:1px solid #E1E7EF;padding:18px 12px 8px;margin-top:32px;color:#7A8999;font-size:11px;text-align:center;line-height:1.65;overflow-wrap:anywhere;}
 @media (max-width: 640px) {
-    .block-container {padding:1rem 0.85rem 2rem;}
+    /* Keep the main page clear of Streamlit's mobile top toolbar. */
+    .block-container {padding:2.35rem 0.85rem 2rem !important;}
+
+    /* Keep the navigation drawer compact when a mobile user opens it. */
+    section[data-testid="stSidebar"] {
+        width: min(78vw, 300px) !important;
+        min-width: min(78vw, 300px) !important;
+        max-width: min(78vw, 300px) !important;
+    }
+
     .hero {padding:21px 18px;border-radius:14px;margin-bottom:18px;}
     .hero h1 {font-size:24px !important;line-height:1.25 !important;}
     .hero p {font-size:13px;line-height:1.55;}
