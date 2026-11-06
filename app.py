@@ -249,10 +249,27 @@ textarea[aria-label*="زبانیں"] {
     /* Keep the main page clear of Streamlit's mobile top toolbar. */
     .block-container {padding:2.35rem 0.85rem 2rem !important;}
 
-    /* Let Streamlit manage the native mobile navigation drawer width. */
-    [data-testid="stSidebar"] {
+    /* Compact, readable mobile navigation drawer. */
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"][aria-expanded="true"] {
+        width: min(250px, 72vw) !important;
+        min-width: min(250px, 72vw) !important;
+        max-width: min(250px, 72vw) !important;
+        flex: 0 0 min(250px, 72vw) !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        width: 100% !important;
         min-width: 0 !important;
     }
+    section[data-testid="stSidebar"] .block-container {
+        padding: 1.1rem 0.8rem 1.5rem !important;
+    }
+    .sidebar-brand {padding:8px 0 16px 0;}
+    .sidebar-logo {font-size:30px;}
+    .sidebar-title {font-size:18px;line-height:1.3;}
+    .sidebar-subtitle {font-size:13px;}
+    .sidebar-section {font-size:11px;margin-top:17px;margin-bottom:8px;}
+    .sidebar-item {padding:10px 10px;font-size:13px;margin-bottom:6px;}
 
     /* Stack dashboard cards and form columns instead of squeezing them. */
     [data-testid="stHorizontalBlock"] {
