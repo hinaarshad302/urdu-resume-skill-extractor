@@ -1,235 +1,210 @@
 # Urdu Resume Skill Extractor
-### AI-Powered Resume Intelligence & Candidate Information Extraction
+### AI-Assisted Resume Intelligence & Bilingual CV Generation
 
 <p align="center">
-  <strong>Transforming Unstructured Resumes into Structured Candidate Profiles</strong>
+  <strong>From Resume Documents to Structured Candidate Profiles</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.x-blue?logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/Framework-Streamlit-FF4B4B?logo=streamlit" alt="Streamlit">
-  <img src="https://img.shields.io/badge/AI-Google%20Gemini-4285F4?logo=google" alt="Google Gemini">
-  <img src="https://img.shields.io/badge/Language-English%20%7C%20Urdu-green" alt="Languages">
-  <img src="https://img.shields.io/badge/Project-2026--2027-purple" alt="Project Year">
+  <img src="https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Streamlit-Web%20App-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit">
+  <img src="https://img.shields.io/badge/Google%20Gemini-AI%20Integration-4285F4?logo=google" alt="Google Gemini">
+  <img src="https://img.shields.io/badge/Languages-English%20%7C%20Urdu-16856B" alt="English and Urdu">
+  <img src="https://img.shields.io/badge/Status-MVP%20Complete-238636" alt="MVP Complete">
 </p>
 
 ---
 
-## 1. Project Overview
+## Overview
 
-**Urdu Resume Skill Extractor** is an AI-assisted resume analysis and candidate information extraction web application developed using Python and Streamlit.
+**Urdu Resume Skill Extractor** is a Python and Streamlit web application that extracts candidate information from resume documents, organizes it into an editable profile, and uses Google Gemini AI to generate separate English and Urdu CV content.
 
-The system processes uploaded resumes, extracts relevant candidate information, organizes professional skills, and generates structured English and Urdu CV profiles with the assistance of Google Gemini AI.
+The application brings document text extraction, candidate information analysis, bilingual AI-assisted CV generation, preview, and document export into one workflow.
 
-The platform is designed to simplify resume processing, improve information organization, and provide downloadable candidate profiles in commonly used document formats.
+**Project type:** Academic Final Year Project  
+**Project period:** 2026–2027  
+**Developer:** Hina Arshad
 
-It combines document processing, information extraction, AI-assisted content generation, and multilingual document export in one application.
+## Live Demo
 
-## 2. Core Objectives
+- **Application:** [Open Urdu Resume Skill Extractor](https://urdu-resume-skill-extractor-3vjtecyvnp6rgfuqgf7t8w.streamlit.app/)
+- **Source code:** [GitHub Repository](https://github.com/hinaarshad302/urdu-resume-skill-extractor)
 
-- Automate the extraction of candidate information from resumes.
-- Organize education, experience, projects, and professional skills.
-- Separate technical skills from soft skills.
-- Generate professional English and Urdu CV content.
-- Provide editable candidate profiles.
-- Support multiple document export formats.
-- Make resume processing easier through a user-friendly interface.
+## Features
 
-## 3. Key Features
+### Resume upload and text extraction
+- Accepts PDF, DOCX, and TXT resume files.
+- Extracts selectable PDF text using PDFPlumber, with PyPDF as a fallback.
+- Reads text from Word and plain-text documents.
+- Handles common candidate information and resume sections.
 
-### Resume Processing
-- Upload PDF, DOCX, and TXT resumes.
-- Extract available candidate information.
-- Process contact details and professional sections.
-- Organize extracted information into structured fields.
+### Candidate information analysis
+- Detects available contact details, including email and phone number.
+- Extracts and organizes education and work experience.
+- Identifies technical skills and soft skills separately.
+- Detects project information and language details.
+- Presents extracted information in an editable candidate profile.
 
-### AI-Powered CV Generation
-- Generate professional English CV content.
-- Generate Urdu CV content using Urdu script.
-- Improve grammar, readability, and professional presentation.
-- Preserve official names, technology names, and project titles.
+### English and Urdu CV generation
+- Generates separate English and Urdu CV profiles using Google Gemini.
+- Provides individual English and Urdu previews.
+- Keeps official names, institution names, project titles, and technology names in their original form where appropriate.
+- Allows users to review and edit information before exporting.
 
-### Candidate Information Management
-- Review extracted candidate profiles.
-- Edit candidate information before generating CVs.
-- Separate technical and soft skills.
-- Organize education, experience, projects, and languages.
+### Document export
+English and Urdu CVs have separate download options.
 
-### Document Export
-Download generated CVs in three formats:
-
-| Format | Purpose |
+| Format | Output |
 |---|---|
-| PDF | Professional document sharing |
+| PDF | Shareable CV document |
 | DOCX | Editable Microsoft Word document |
 | XLSX | Structured candidate information |
 
-### Multilingual Support
-- English CV generation.
-- Urdu CV generation.
-- Urdu right-to-left text handling in supported document outputs.
+### User interface
+- Streamlit-based web interface.
+- Responsive styling for desktop and mobile screens.
+- Separate areas for resume upload, candidate analysis, profile editing, previews, and downloads.
 
-## 4. Technology Stack
-
-| Technology | Application |
-|---|---|
-| Python | Core application development |
-| Streamlit | Interactive web interface |
-| Google Gemini API | AI-assisted CV generation |
-| PDFPlumber | PDF text extraction |
-| PyPDF | PDF document processing |
-| Python-docx | Word document generation |
-| Pandas | Data processing |
-| OpenPyXL | Excel generation |
-| Pillow | Image and text processing |
-| ReportLab | PDF generation |
-| Arabic Reshaper | Urdu text shaping |
-| Python-Bidi | Bidirectional text support |
-
-## 5. Application Workflow
+## Application Workflow
 
 ```mermaid
 flowchart TD
-    A[Upload Resume] --> B[Extract Document Text]
-    B --> C[Identify Candidate Information]
-    C --> D[Review and Edit Profile]
-    D --> E[Generate English and Urdu CVs]
-    E --> F[Preview Generated Content]
-    F --> G[Verify Information]
+    A[Upload PDF, DOCX or TXT] --> B[Extract Resume Text]
+    B --> C[Analyze Candidate Information]
+    C --> D[Review and Edit Candidate Profile]
+    D --> E[Generate English and Urdu CVs with Gemini]
+    E --> F[Preview Both CVs]
+    F --> G[Verify All Details]
     G --> H[Download PDF, DOCX or XLSX]
 ```
 
-## 6. Project Structure
+## Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Python | Core application logic |
+| Streamlit | Web application interface |
+| Google Gemini API | AI-assisted CV generation |
+| PDFPlumber | Primary PDF text extraction |
+| PyPDF | Secondary PDF text extraction |
+| python-docx | Word document reading and generation |
+| Pandas | Data handling |
+| OpenPyXL | Excel workbook generation |
+| Pillow | Image and text rendering |
+| ReportLab | PDF document generation |
+| Arabic Reshaper | Urdu text shaping |
+| Python-Bidi | Bidirectional text handling |
+
+## Repository Structure
 
 ```text
 urdu-resume-skill-extractor/
-│
 ├── app.py
 ├── requirements.txt
 ├── README.md
-│
 └── assets/
     └── NotoNastaliqUrdu-Regular.ttf
 ```
 
-*The above shows the main application files and asset currently used for Urdu font rendering.*
+The main application logic is contained in `app.py`. The Urdu font asset supports Urdu text rendering in relevant outputs.
 
-## 7. Installation & Configuration
+## Setup and Installation
 
-### Prerequisites
+### Requirements
 
 - Python 3.x
-- pip package manager
-- Google Gemini API key
+- pip
+- A Google Gemini API key
 
-### Step 1: Clone the Repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/hinaarshad302/urdu-resume-skill-extractor.git
-```
-
-### Step 2: Navigate to the Project
-
-```bash
 cd urdu-resume-skill-extractor
 ```
 
-### Step 3: Install Dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 4: Configure Gemini API
+### 3. Configure the Gemini API key
 
-For local development, create:
-
-`.streamlit/secrets.toml`
-
-Add:
+For local development, create a file at `.streamlit/secrets.toml`:
 
 ```toml
 GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
 ```
 
-For Streamlit Community Cloud, add `GEMINI_API_KEY` through the application's Secrets settings.
+For Streamlit Community Cloud, add the same secret in the app's **Settings → Secrets** section.
 
-**Security:** Never commit API keys, passwords, or private credentials to the repository.
+**Security:** Keep your API key private. Do not commit `.streamlit/secrets.toml`, API keys, or other credentials to GitHub.
 
-### Step 5: Launch the Application
+### 4. Run the application
 
 ```bash
 streamlit run app.py
 ```
 
-The application will open in your local browser.
+Open the local URL displayed in the terminal to use the application.
 
-## 8. Live Application
+## Important Limitations
 
-**Try the application:**
+- OCR is not currently implemented. Image-only or scanned PDFs may not provide extractable text.
+- PDF extraction quality can vary with complex columns, unusual fonts, protected files, or unusual text encoding.
+- PDFPlumber and PyPDF can extract selectable text, but neither is an OCR engine.
+- AI-generated CV content may contain errors or require editing.
+- Urdu text layout and PDF rendering can vary depending on fonts and document structure.
+- The application is an assistive tool and should not make recruitment decisions without human review.
 
-[Urdu Resume Skill Extractor – Live Demo](https://urdu-resume-skill-extractor-3vjtecyvnp6rgfuqgf7t8w.streamlit.app/)
+## Responsible AI and Information Verification
 
-**Source Code:**
+The application is designed to organize information supplied in a resume. AI-generated content must be checked against the original document.
 
-[GitHub Repository](https://github.com/hinaarshad302/urdu-resume-skill-extractor)
+Before downloading a CV, users should verify:
 
-## 9. Important Limitations
+- Candidate name and contact information.
+- Degrees, institutions, and education dates.
+- Employers, job titles, responsibilities, and experience duration.
+- Skills, projects, and achievements.
+- Language proficiency and other personal details.
 
-- Scanned PDF documents are not currently supported through OCR.
-- Complex PDF columns and layouts may affect extraction quality.
-- Extraction results depend on document structure and text quality.
-- AI-generated content may require manual corrections.
-- Urdu PDF rendering can vary depending on font and layout compatibility.
+**Missing qualifications, experience, dates, or achievements must not be treated as facts or invented by AI.**
 
-## 10. Responsible AI & Data Verification
+Only upload resumes you are authorized to process. Handle candidate documents and personal information responsibly.
 
-This application provides AI-assisted information extraction and CV generation. It is not a replacement for human review.
+## Project Status and Future Enhancements
 
-Users should:
+**Current milestone: MVP feature development completed.**
 
-- Verify education, qualifications, and institutions.
-- Confirm employment history and dates.
-- Review skills, projects, and achievements.
-- Correct inaccurate or incomplete extracted information.
-- Never accept AI-generated details that are not supported by the original resume.
+Potential future enhancements (not currently represented as completed features):
 
-**The system should not invent missing candidate information.**
-
-## 11. Future Development Roadmap
-
-Potential future enhancements include:
-
-- OCR integration for scanned resumes.
-- Improved handling of complex PDF layouts.
-- Advanced candidate search and filtering.
-- Resume-job description matching.
-- Enhanced Urdu document rendering.
+- OCR support for scanned resumes.
+- Improved extraction from complex multi-column PDFs.
+- Resume-to-job-description matching.
+- More advanced candidate search and analytics.
 - Additional language support.
-- Advanced recruitment analytics.
-- Further mobile interface improvements.
+- Further improvements to Urdu document rendering and accessibility.
 
-*These are planned enhancements, not claims about currently implemented functionality.*
+## Developer
 
-## 12. Developer Information
-
-**Designed & Developed by Hina Arshad**
-
+**Hina Arshad**  
 Computer Science Graduate | AI Application Development
 
-**Project Category:** Academic Final Year Project  
-**Project Period:** 2026–2027  
-**Primary Technologies:** Python, Streamlit, Google Gemini AI
+**Project:** Urdu Resume Skill Extractor  
+**Category:** Academic Final Year Project  
+**Period:** 2026–2027
 
-GitHub: [@hinaarshad302](https://github.com/hinaarshad302)
+[GitHub Profile – hinaarshad302](https://github.com/hinaarshad302)
 
 ---
 
 <p align="center">
   <strong>Urdu Resume Skill Extractor</strong><br>
-  AI-Assisted Resume Analysis & Multilingual CV Generation
+  AI-Assisted Resume Analysis & English–Urdu CV Generation
 </p>
 
 <p align="center">
-  Built with Python, Streamlit & Google Gemini AI.
+  Built with Python, Streamlit, and Google Gemini AI.
 </p>
