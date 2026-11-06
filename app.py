@@ -42,7 +42,7 @@ st.set_page_config(
     page_title="Urdu Resume Skill Extractor",
     page_icon="📄",
     layout="wide",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="collapsed"
 )
 
 # =====================================================
@@ -250,6 +250,25 @@ textarea[aria-label*="زبانیں"] {
     .block-container {padding:2.35rem 0.85rem 2rem !important;}
 
     /* Let Streamlit manage the native mobile navigation drawer width. */
+    [data-testid="stSidebar"] {
+        min-width: 0 !important;
+    }
+
+    /* Stack dashboard cards and form columns instead of squeezing them. */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 0.75rem !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 100% !important;
+    }
+
+    .block-container {max-width:100% !important;}
+    .section-heading {font-size:20px;line-height:1.4;}
+    .card-label {font-size:13px;}
+    .skill-tag {font-size:13px;padding:7px 12px;}
 
     .hero {padding:21px 18px;border-radius:14px;margin-bottom:18px;}
     .hero h1 {font-size:27px !important;line-height:1.25 !important;}
