@@ -9,6 +9,7 @@ import json
 import time
 import streamlit as st
 import pdfplumber
+from pypdf import PdfReader
 import pandas as pd
 
 from PIL import Image as PILImage, ImageDraw, ImageFont, features
@@ -343,11 +344,45 @@ SKILL_DISPLAY = {
 # TEXT EXTRACTION
 # =====================================================
 def extract_pdf(file):
-    text = ""
-    with pdfplumber.open(io.BytesIO(file.read())) as pdf:
-        for page in pdf.pages:
-            text += (page.extract_text() or "") + "\n"
-    return text
+    """
+    Extract selectable text from a PDF.
+    Try pdfplumber first, then use PyPDF as a fallback.
+    This does not perform OCR on image-only scanned pages.
+    """
+    pdf_bytes = file.getvalue() if hasattr(file, "getvalue") else file.read()
+    if not pdf_bytes:
+        return ""
+
+    extracted = []
+
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text(
+                    layout=False,
+                    x_tolerance=2,
+                    y_tolerance=3
+                ) or ""
+                if page_text.strip():
+                    extracted.append(page_text)
+    except Exception:
+        extracted = []
+
+    text = "\n".join(extracted).strip()
+    if text:
+        return text
+
+    # Fallback for PDFs whose text layer is not handled by pdfplumber.
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes), strict=False)
+        fallback_pages = []
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            if page_text.strip():
+                fallback_pages.append(page_text)
+        return "\n".join(fallback_pages).strip()
+    except Exception:
+        return ""
 
 
 def extract_docx(file):
@@ -1562,8 +1597,10 @@ if uploaded_file:
         if not resume_text.strip():
 
             st.warning(
-                "No readable text was found. This may be a scanned PDF. "
-                "OCR support will be introduced in a future development phase."
+                "No selectable text could be extracted from this PDF. "
+                "It may be image-based, protected, or use an unsupported text layout. "
+                "OCR is not available yet. If you can copy the resume text, "
+                "save it as a TXT or DOCX file and upload that instead."
             )
 
         else:
